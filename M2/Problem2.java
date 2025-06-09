@@ -41,7 +41,7 @@ public class Problem2 extends BaseClass {
         // change "Object" to "String"
         // format total to 2 decimal places
         
-        Object modifiedTotal = ("?");
+        String modifiedTotal = String.format("%.2f", total);
        
 
         // End Solution Edits----------------------------------------------------------
