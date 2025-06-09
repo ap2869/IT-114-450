@@ -13,7 +13,8 @@ public class Problem4 extends BaseClass {
     private static void transformText(String[] arr, int arrayNumber) {
         // Only make edits between the designated "Start" and "End" comments
         printArrayInfoBasic(arr, arrayNumber);
-
+        String placeholderForModifiedPhrase = "";
+        String placeholderForMiddleCharacters = "";
         // Challenge 1: Remove non-alphanumeric characters except spaces
         // Challenge 2: Convert text to Title Case
         // Challenge 3: Trim leading/trailing spaces and remove duplicate spaces
@@ -25,13 +26,21 @@ public class Problem4 extends BaseClass {
         // Step 1: sketch out plan using comments (include ucid and date)
         // Step 2: Add/commit your outline of comments (required for full credit)
         // Step 3: Add code to solve the problem (add/commit as needed)
-        String placeholderForModifiedPhrase = "";
-        String placeholderForMiddleCharacters = "";
+       
         
-        for(int i = 0; i <arr.length; i++){
-            // Start Solution Edits
+        for(int i = 0; i < arr.length; i++){
+            // Start Solution Edits----------------------------------------
+
+            // ap2869 - june 9, 2025   
             
-             // End Solution Edits
+            // use replace.all to remove and replace non alphabetic characters with "".
+            // use toUpper case and toLower case to switch the beginning of the word to upper or lower case.
+            // use .trim and replaceAll to trim the excess spaces and remove duplicate spaces. 
+            // finally assign the results to placeholderForModifiedPhrase and for final result and cleaning of the words. 
+            
+          
+            
+            // End Solution Edits----------------------------------------
             System.out.println(String.format("Index[%d] \"%s\" | Middle: \"%s\"",i, placeholderForModifiedPhrase, placeholderForMiddleCharacters));
         }  
 
