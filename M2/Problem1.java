@@ -17,6 +17,14 @@ public class Problem1 extends BaseClass {
         
         // Start Solution Edits _____________________________________________________
 
+        // ap2869 - june 9, 2025
+
+        // loop through each array 
+        // track the first odd number in the array.
+        // print the odd number of the array
+        // after odds of the first array is printed out go onto the next array. 
+        // repeat
+
 
     
         // End Solution Edits _____________________________________________________
