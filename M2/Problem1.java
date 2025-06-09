@@ -14,22 +14,24 @@ public class Problem1 extends BaseClass {
         // Step 2: Add/commit your outline of comments (required for full credit)
         // Step 3: Add code to solve the problem (add/commit as needed)
         System.out.print("Output Array: ");
-        // Start Solution Edits
         
+        // Start Solution Edits _____________________________________________________
 
-        // End Solution Edits
+
+    
+        // End Solution Edits _____________________________________________________
         System.out.println("");
         System.out.println("______________________________________");
     }
     public static void main(String[] args) {
-        final String ucid = "mt85"; // <-- change to your UCID
+        final String ucid = "Ap2869"; // <-- change to your UCID
         // no edits below this line
         printHeader(ucid, 1);
         printOdds(array1,1);
         printOdds(array2,2);
         printOdds(array3,3);
         printOdds(array4,4);
-        printFooter(ucid, 1);
+        printFooter(ucid, 1); 
         
     }
 }
