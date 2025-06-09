@@ -1,6 +1,6 @@
 package M2;
 
-import javax.management.modelmbean.ModelMBeanNotificationBroadcaster;
+
 
 public class Problem2 extends BaseClass {
     private static double[] array1 = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 };

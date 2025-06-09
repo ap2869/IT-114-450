@@ -16,10 +16,17 @@ public class Problem3 extends BaseClass {
         // Step 2: Add/commit your outline of comments (required for full credit)
         // Step 3: Add code to solve the problem (add/commit as needed)
         Object[] output = new Object[arr.length];
-        // Start Solution Edits
-        
+        // Start Solution Edits -----------------------------------------------------
 
-        // End Solution Edits
+         // ap2869 - june 9, 2025 
+         
+         // get the numbers from the arrays 
+         // take whats inside and store it
+         // go through each array (int, flost,double,string)
+         // once u have all from the array stored and assign to its proper output. 
+
+     
+        // End Solution Edits -----------------------------------------------------
         System.out.println("Output: ");
         printOutputWithType(output);
         System.out.println("");
