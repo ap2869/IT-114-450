@@ -1,5 +1,7 @@
 package M2;
 
+import javax.management.modelmbean.ModelMBeanNotificationBroadcaster;
+
 public class Problem2 extends BaseClass {
     private static double[] array1 = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 };
     private static double[] array2 = { 1.0000001, 1.0000002, 1.0000003, 1.0000004, 1.0000005 }; 
@@ -34,9 +36,13 @@ public class Problem2 extends BaseClass {
            }
            
         // Solve Challenge 2 here
-
-
-        Object modifiedTotal = "?";
+        
+        // take the total from challange 1
+        // change "Object" to "String"
+        // format total to 2 decimal places
+        
+        Object modifiedTotal = ("?");
+       
 
         // End Solution Edits----------------------------------------------------------
         System.out.println("Total Raw Value: " + total);
