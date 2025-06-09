@@ -28,17 +28,14 @@ public class Problem2 extends BaseClass {
         // add each number of the array to each other. 
         // print total
         // repeat for other arrays
-        
-       
-      
-        
 
-
-
-    
-        
-      
+        for (double number : arr) {
+            total += number;
+           }
+           
         // Solve Challenge 2 here
+
+
         Object modifiedTotal = "?";
 
         // End Solution Edits----------------------------------------------------------
