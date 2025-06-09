@@ -19,16 +19,45 @@ public class Problem3 extends BaseClass {
         // Start Solution Edits -----------------------------------------------------
 
          // ap2869 - june 9, 2025 
-         
+
          // get the numbers from the arrays 
+         // if its not a number get the string(word)
          // take whats inside and store it
          // go through each array (int, flost,double,string)
          // once u have all from the array stored and assign to its proper output. 
+
+         for (int i = 0; i < arr.length; i++) {
+            Object num = arr[i];
+    
+            if (num instanceof Integer) {
+                int number = (Integer) num;
+                output[i] = (number < 0) ? -number : number;
+            } else if (num instanceof Double) {
+                double number = (Double) num;
+                output[i] = (number < 0) ? -number : number;
+            } else if (num instanceof Float) {
+                float number = (Float) num;
+                output[i] = (number < 0) ? -number : number;
+            } else if (num instanceof String) {
+                String word = (String) num;
+             
+                try {
+                    double number = Double.parseDouble(word);
+                    num = (number < 0) ? -number : num;
+                    output[i] = String.valueOf(num);
+                } catch (NumberFormatException e) {
+                    output[i] = word; 
+                }
+            } else {
+                output[i] = num; 
+            }
+        }
 
      
         // End Solution Edits -----------------------------------------------------
         System.out.println("Output: ");
         printOutputWithType(output);
+       
         System.out.println("");
         System.out.println("______________________________________");
     }
