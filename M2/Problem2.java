@@ -19,15 +19,30 @@ public class Problem2 extends BaseClass {
         // Step 2: Add/commit your outline of comments (required for full credit)
         // Step 3: Add code to solve the problem (add/commit as needed)
         double total = 0;
-        // Start Solution Edits
+        // Start Solution Edits--------------------------------------------------------
+        
+        // ap2869 - june 9, 2025
+
         // Solve Challenge 1 here
+        // loop through each array 
+        // add each number of the array to each other. 
+        // print total
+        // repeat for other arrays
+        
+       
+      
+        
+
+
+
+    
         
       
         // Solve Challenge 2 here
         Object modifiedTotal = "?";
 
-        // End Solution Edits
-        System.out.println("Total Raw Value: " +total);
+        // End Solution Edits----------------------------------------------------------
+        System.out.println("Total Raw Value: " + total);
         System.out.println("Total Modified Value: " + modifiedTotal);
         System.out.println("");
         System.out.println("______________________________________");
