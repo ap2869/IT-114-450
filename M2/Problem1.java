@@ -26,6 +26,19 @@ public class Problem1 extends BaseClass {
         // repeat
 
 
+        boolean one = true;
+        for (int num : arr) {
+            if (num % 2 != 0) {
+                if (!one) {
+                    System.out.print(", ");
+                }
+                System.out.print(num);
+                one = false;
+            }
+        }
+
+
+
     
         // End Solution Edits _____________________________________________________
         System.out.println("");
