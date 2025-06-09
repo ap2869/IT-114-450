@@ -32,13 +32,29 @@ public class Problem4 extends BaseClass {
             // Start Solution Edits----------------------------------------
 
             // ap2869 - june 9, 2025   
-            
+
             // use replace.all to remove and replace non alphabetic characters with "".
             // use toUpper case and toLower case to switch the beginning of the word to upper or lower case.
             // use .trim and replaceAll to trim the excess spaces and remove duplicate spaces. 
             // finally assign the results to placeholderForModifiedPhrase and for final result and cleaning of the words. 
+
+               
+            String str = arr[i].replaceAll("[^a-zA-Z0-9 ]", "");
+        
+         
+            str = str.trim().replaceAll(" +", " ");
+    
+       
+            String[] words = str.split(" ");
+            String output = "";
+            for (String word : words) {
+                if (!word.isEmpty()) {
+                    String capitalized = word.substring(0, 1).toUpperCase() + word.substring(1).toLowerCase();
+                    output += capitalized + " ";
+                }
+            }
             
-          
+            placeholderForModifiedPhrase = output.trim();
             
             // End Solution Edits----------------------------------------
             System.out.println(String.format("Index[%d] \"%s\" | Middle: \"%s\"",i, placeholderForModifiedPhrase, placeholderForMiddleCharacters));
