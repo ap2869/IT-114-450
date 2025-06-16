@@ -17,7 +17,7 @@ Challenge 2: Simple Slash Command Handler
 import java.util.Scanner;
 
 public class SlashCommandHandler extends BaseClass {
-    private static String ucid = "mt85"; // <-- change to your UCID
+    private static String ucid = "ap2869"; // <-- change to your UCID
 
     public static void main(String[] args) {
         printHeader(ucid, 2, "Objective: Implement a simple slash command parser.");
@@ -28,6 +28,10 @@ public class SlashCommandHandler extends BaseClass {
 
         while (true) {
             System.out.print("Enter command: ");
+
+            // ap2869 june 16, 2025 
+
+
             // get entered text
 
             // check if greet
