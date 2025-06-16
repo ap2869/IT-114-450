@@ -24,34 +24,67 @@ public class SlashCommandHandler extends BaseClass {
 
         Scanner scanner = new Scanner(System.in);
 
+        // ap2869 june 16, 2025 
+
         // Can define any variables needed here
 
         while (true) {
+
             System.out.print("Enter command: ");
+            String input = scanner.nextLine();
 
-            // ap2869 june 16, 2025 
+            if (input.isEmpty()) {
+                System.out.println("Type a command /greet, /roll, /echo or /quit");
+               
+            }
+
+            String command = input.toLowerCase();
+
+           
+
+            if (command.startsWith("/echo")){
+               
+                    System.out.println("Please enter message: ");
+                    String message = scanner.nextLine();
+                    
+                    if (message.isEmpty()) {
+                        System.out.println("Error: u have entered an empty message.");
+                    } else {
+                        System.out.println("------------------------------");
+                        System.out.println("Your Message is: " + message);
+                    }
+                
+            }
+
+            if (command.startsWith("/greet")){
+                
+                    System.out.println("Please enter name: ");
+                    String greet = scanner.nextLine();
+                    if (greet.isEmpty()) {
+                        System.out.print("Error: Empty name entered!! ");
+                    } else { 
+                        System.out.println("------------------------------");
+                        System.out.print("Hello: " + greet + " Welcome !");
+                    }
 
 
-            // get entered text
+                
+            }
 
-            // check if greet
-            //// process greet
+            if (command.startsWith("/roll")) {
 
-            // check if roll
-            //// process roll
-            //// handle invalid formats
+                System.out.println("Please enter how many dice and sides (like 2d6):");           
 
-            // check if echo
-            //// process echo
+               }
 
-            // check if quit
-            //// process quit
-
-            // handle invalid commnads
-
-            // delete this condition/block, it's just here so the sample runs without edits
+            if (command.equals("/quit")){
+                System.out.println ("Thank you for playing. :) ");
+                System.out.println("Goodbye.");
+                
+            }
+            
             if (1 == 1) {
-                System.out.println("Breaking loop");
+                System.out.println(" ");
                 break;
             }
         }
