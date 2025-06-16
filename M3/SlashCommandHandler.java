@@ -72,21 +72,40 @@ public class SlashCommandHandler extends BaseClass {
             }
 
             if (command.startsWith("/roll")) {
+                
+                System.out.println("Please enter how many dice and sides (example: 2d6):");
+                String roll = scanner.nextLine();
+                String[] each = roll.split("d");
 
-                System.out.println("Please enter how many dice and sides (like 2d6):");           
-
-               }
-
-            if (command.equals("/quit")){
+        
+            
+            
+                int dice = Integer.parseInt(each[0]);
+                int side = Integer.parseInt(each[1]);
+    
+                    
+                int total = 0;
+        
+                System.out.println("------------------------------");
+                for (int i = 0; i < dice; i++) {
+                     int diceRoll = (int)(Math.random() * side) + 1;
+                     System.out.println("Die " + (i + 1) + ": " + diceRoll);
+                     total += diceRoll;
+                     }
+                       
+                    
+                        System.out.println("Rolled " + dice + "d" + side + " and got " + total + "!");
+                    
+                } 
+                
+                if (command.equals("/quit")){
                 System.out.println ("Thank you for playing. :) ");
                 System.out.println("Goodbye.");
                 
             }
+
+            break;
             
-            if (1 == 1) {
-                System.out.println(" ");
-                break;
-            }
         }
 
         printFooter(ucid, 2);
