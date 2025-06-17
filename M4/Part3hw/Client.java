@@ -104,8 +104,8 @@ public class Client {
             // replaces multiple spaces with a single space
             // splits on the space after connect (gives us host and port)
             // splits on : to get host as index 0 and port as index 1
-            String[] parts = text.trim().replaceAll(" +", " ").split(" ")[1].split(":");
-            connect(parts[0].trim(), Integer.parseInt(parts[1].trim()));
+            String[] input = text.trim().replaceAll(" +", " ").split(" ")[1].split(":");
+            connect(input[0].trim(), Integer.parseInt(input[1].trim()));
             wasCommand = true;
         } else if ("/quit".equalsIgnoreCase(text)) {
             close();
@@ -129,11 +129,24 @@ public class Client {
             String[] commandData = {Constants.COMMAND_TRIGGER, "Flip", };
             sendToServer(String.join(",", commandData));
             wasCommand = true;
+            
+        } else if (text.toLowerCase().startsWith("/pm")) {
+            String[] input = text.split("\\s+", 3);
+            
+        
+            String name = input[1];
+            String message = input[2];
+        
+            String[] commandData = { Constants.COMMAND_TRIGGER, "pm", name, message };
+            sendToServer(String.join(",", commandData));
+            wasCommand = true;
+        }
+        //---------------------------------------------------------
 
-        } 
-        return wasCommand;
-    }
+        return wasCommand;    
 
+        }    
+    
     public void start() throws IOException {
         System.out.println("Client starting");
 

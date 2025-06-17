@@ -89,9 +89,9 @@ public class Server {
         // won't get the same id)
         // Note: any desired changes to the message must be done before this line
         String senderString = sender == null ? "Server" : String.format("User[%s]", sender.getClientId());
-        // Note: formattedMessage must be final (or effectively final) since outside
+        // Note: format must be final (or effectively final) since outside
         // scope can't changed inside a callback function (see removeIf() below)
-        final String formattedMessage = String.format("%s: %s", senderString, message);
+        final String format = String.format("%s: %s", senderString, message);
         // end temp identifier
 
         // loop over clients and send out the message; remove client if message failed
@@ -100,7 +100,7 @@ public class Server {
         // it's one way we can safely remove items during iteration
 
         connectedClients.values().removeIf(serverThread -> {
-            boolean failedToSend = !serverThread.sendToClient(formattedMessage);
+            boolean failedToSend = !serverThread.sendToClient(format);
             if (failedToSend) {
                 System.out.println(
                         String.format("Removing disconnected client[%s] from list", serverThread.getClientId()));
@@ -135,6 +135,21 @@ public class Server {
 
         relay(null, message);
     }
+   
+    protected synchronized void handlePm(ServerThread sender, long targetName, String message) {
+        ServerThread receiver = connectedClients.get(targetName);
+
+    if (receiver != null) {
+        long senderName = sender.getClientId();
+
+        String format = "PM from " + senderName + ": " + message;
+
+     
+        sender.sendToClient("Server: " + format);
+        receiver.sendToClient("Server: " + format);
+    } 
+}
+    
     //--------------------------------------------------------------------------
     protected synchronized void handleDisconnect(ServerThread sender) {
         disconnect(sender);
@@ -150,6 +165,7 @@ public class Server {
     protected synchronized void handleMessage(ServerThread sender, String text) {
         relay(sender, text);
     }
+    
     // end handle actions
 
     public static void main(String[] args) {

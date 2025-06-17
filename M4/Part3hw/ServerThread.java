@@ -191,12 +191,32 @@ public class ServerThread extends Thread {
                 //-----------------------------------------
 
                  // ap2869 june 16, 2025 
-                 
+
                     case "Flip":
                         server.handleFlip(this);
                         wasCommand = true;
                         break;
-                //-----------------------------------------
+
+                    case "pm":
+                    if (commandData.length >= 4) {
+                        String name = commandData[2];
+                        StringBuilder alexMessage = new StringBuilder();
+                    
+                        for (int i = 3; i < commandData.length; i++) {
+                            alexMessage.append(commandData[i]).append(" ");
+                        
+                            }try {
+                                                    
+                                long Id = Long.parseLong(name);
+                                server.handlePm(this, Id, alexMessage.toString().trim());
+                                wasCommand = true;
+                            } catch (NumberFormatException e) {
+                                sendToClient("error: ");
+                            }
+                        }
+                        break;
+
+                 //-----------------------------------------
                     case "quit":
                     case "disconnect":
                     case "logout":
