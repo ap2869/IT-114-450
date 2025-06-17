@@ -9,7 +9,7 @@ import java.util.Scanner;
 Challenge 3: Mad Libs Generator (Randomized Stories)
 -----------------------------------------------------
 - Load a **random** story from the "stories" folder
-- Extract **each line** into a collection (i.e., ArrayList)
+- Extract **each storyLine** into a collection (i.e., ArrayList)
 - Prompts user for each placeholder (i.e., <adjective>) 
     - Any word the user types is acceptable, no need to verify if it matches the placeholder type
     - Any placeholder with underscores should display with spaces instead
@@ -36,25 +36,59 @@ public class MadLibsGenerator extends BaseClass {
         List<String> lines = new ArrayList<>();
         
         // ap2869 june 16, 2025 
+     
+        File[] stories = folder.listFiles();
+        
+        int randomStory = (int)(Math.random() * stories.length);
+        File story1 = stories[randomStory];
 
-        // Start edits
+       
+        System.out.println("Story Picked: " + story1.getName());
+        
+        try {
 
-        // load a random story file
+            Scanner reader = new Scanner(story1);        
+          
+            while (reader.hasNextLine()) {
+                String storyLine = reader.nextLine();
+                lines.add(storyLine);
+                }
 
-        // parse the story lines
+                reader.close();
+                } catch (Exception e) {
+                    System.out.println("Story not found:");
+                    }
 
-        // iterate through the lines
+                    for (int i = 0; i < lines.size(); i++) {
+                        String line = lines.get(i);
 
-        // prompt the user for each placeholder (note: there may be more than one
-        // placeholder in a line)
+                        int start = line.indexOf('<');
+                        int end = line.indexOf('>');
+                        
+                        while (start != -1 && end != -1 && end > start) {
 
-        // apply the update to the same collection slot
-
-        // End edits
+                            String placeholder = line.substring(start + 1, end);                    
+                            
+                            String prompt = placeholder.replace("_", " ");                    
+                      
+                            System.out.println("Please write a " + prompt + ": ");
+                            String word = scanner.nextLine();                    
+                           
+                            String replacement = line.substring(start, end + 1);                    
+                           
+                            line = line.replaceFirst(replacement, word);                    
+                          
+                            start = line.indexOf('<');
+                            end = line.indexOf('>');
+                        }              
+                    
+                        lines.set(i, line);
+                    }
+                                    
         System.out.println("\nYour Completed Mad Libs Story:\n");
         StringBuilder finalStory = new StringBuilder();
-        for (String line : lines) {
-            finalStory.append(line).append("\n");
+        for (String storyLine : lines) {
+            finalStory.append(storyLine).append("\n");
         }
         System.out.println(finalStory.toString());
 
