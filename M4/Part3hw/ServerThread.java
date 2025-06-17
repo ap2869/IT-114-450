@@ -188,6 +188,15 @@ public class ServerThread extends Thread {
                 // Note: not all commands require data, some are simply actions/triggers to
                 // process like quit
                 switch (command) {
+                //-----------------------------------------
+
+                 // ap2869 june 16, 2025 
+                 
+                    case "Flip":
+                        server.handleFlip(this);
+                        wasCommand = true;
+                        break;
+                //-----------------------------------------
                     case "quit":
                     case "disconnect":
                     case "logout":

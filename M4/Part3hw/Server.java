@@ -116,6 +116,26 @@ public class Server {
      * 
      * @param serverThread
      */
+    //--------------------------------------------------------------------------
+
+     // ap2869 june 16, 2025
+
+    protected synchronized void handleFlip(ServerThread sender) {
+      
+        double randomNum = Math.random();
+        String result;
+    
+        if (randomNum < 0.5) {
+            result = "heads";
+        } else {
+            result = "tails";
+        }
+        long user = sender.getClientId();
+        String message = "Alex[" + user + "] flipped a coin and got " + result;
+
+        relay(null, message);
+    }
+    //--------------------------------------------------------------------------
     protected synchronized void handleDisconnect(ServerThread sender) {
         disconnect(sender);
     }
