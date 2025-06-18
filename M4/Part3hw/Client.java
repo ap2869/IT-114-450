@@ -132,7 +132,7 @@ public class Client {
             
         } else if (text.toLowerCase().startsWith("/pm")) {
             String[] input = text.split("\\s+", 3);
-            
+
         
             String name = input[1];
             String message = input[2];
@@ -140,12 +140,24 @@ public class Client {
             String[] commandData = { Constants.COMMAND_TRIGGER, "pm", name, message };
             sendToServer(String.join(",", commandData));
             wasCommand = true;
+        
+        } else if (text.toLowerCase().startsWith("/shuffle")) {
+            String[] parts = text.trim().split("\\s+", 2); // split into command and message
+           
+            String message = parts[1];
+            String[] commandData = { Constants.COMMAND_TRIGGER, "shuffle", message };
+            sendToServer(String.join(",", commandData));
+            wasCommand = true;
         }
+        
+
+        
         //---------------------------------------------------------
 
         return wasCommand;    
 
         }    
+    
     
     public void start() throws IOException {
         System.out.println("Client starting");

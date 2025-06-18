@@ -149,6 +149,24 @@ public class Server {
         receiver.sendToClient("Server: " + format);
     } 
 }
+    protected synchronized void handleShuffle(ServerThread sender, String text) {
+
+    
+        char[] words = text.toCharArray();
+
+        java.util.Collections.shuffle(java.util.Arrays.asList(words)); 
+    
+        java.util.List<Character> wordList = new java.util.ArrayList<>();
+        
+        for (char c : words) wordList.add(c);
+        java.util.Collections.shuffle(wordList);
+        StringBuilder sb = new StringBuilder();
+        for (char c : wordList) sb.append(c);
+        String wordsShuffled = sb.toString();
+
+    
+        relay(sender, wordsShuffled);
+}
     
     //--------------------------------------------------------------------------
     protected synchronized void handleDisconnect(ServerThread sender) {

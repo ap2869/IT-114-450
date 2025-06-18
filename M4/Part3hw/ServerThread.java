@@ -216,6 +216,16 @@ public class ServerThread extends Thread {
                         }
                         break;
 
+                    case "shuffle":
+                    if (commandData.length >= 3) {
+                        String message3 = commandData[2];
+                        server.handleShuffle(this, message3);
+                        wasCommand = true;
+                    } else {
+                        sendToClient("Error:");
+                        }
+                        break;
+
                  //-----------------------------------------
                     case "quit":
                     case "disconnect":
