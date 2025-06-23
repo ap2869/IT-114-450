@@ -145,8 +145,8 @@ public class Server {
         String format = "PM from " + senderName + ": " + message;
 
      
-        sender.sendToClient("Server: " + format);
-        receiver.sendToClient("Server: " + format);
+        sender.sendToClient(format);
+        receiver.sendToClient(format);
     } 
 }
     protected synchronized void handleShuffle(ServerThread sender, String text) {

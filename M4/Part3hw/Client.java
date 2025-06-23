@@ -142,7 +142,7 @@ public class Client {
             wasCommand = true;
         
         } else if (text.toLowerCase().startsWith("/shuffle")) {
-            String[] parts = text.trim().split("\\s+", 2); // split into command and message
+            String[] parts = text.trim().split("\\s+", 2);
            
             String message = parts[1];
             String[] commandData = { Constants.COMMAND_TRIGGER, "shuffle", message };
