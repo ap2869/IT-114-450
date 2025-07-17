@@ -90,8 +90,9 @@ public class GameRoom extends BaseGameRoom {
         resetTurnStatus();
         round++;
         relay(null, String.format("Round %d has started", round));
-        startRoundTimer();
+        startRoundTimer(); String.format("Round timers aren't needed for turns");
         LoggerUtil.INSTANCE.info("onRoundStart() end");
+        onTurnStart();
     }
 
     /** {@inheritDoc} */
