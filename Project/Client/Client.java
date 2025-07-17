@@ -163,7 +163,7 @@ public enum Client {
                 String message = TextFX.colorize("Known clients:\n", Color.CYAN);
                 LoggerUtil.INSTANCE.info(TextFX.colorize("Known clients:", Color.CYAN));
                 message += String.join("\n", knownClients.values().stream()
-                        .map(c -> String.format("%s %s %s",
+                        .map(c -> String.format("%s %s %s %s",
                                 c.getDisplayName(),
                                 c.getClientId() == myUser.getClientId() ? " (you)" : "",
                                 c.isReady() ? "[x]" : "[ ]",
@@ -212,16 +212,33 @@ public enum Client {
             } else if (text.equalsIgnoreCase(Command.READY.command)) {
                 sendReady();
                 wasCommand = true;
+            } else if (text.startsWith(Command.EXAMPLE_TURN.command)) {
+                text = text.replace(Command.EXAMPLE_TURN.command, "").trim();
+
+                sendDoTurn(text);
+                wasCommand = true;
             }
         }
         return wasCommand;
     }
 
     // Start Send*() methods
+    private void sendDoTurn(String text) throws IOException {
+        // NOTE for now using ReadyPayload as it has the necessary properties
+        // An actual turn may include other data for your project
+        ReadyPayload rp = new ReadyPayload();
+        rp.setPayloadType(PayloadType.TURN);
+        rp.setReady(true); // <- technically not needed as we'll use the payload type as a trigger
+        rp.setMessage(text);
+        sendToServer(rp);
+    }
+
     /**
-     @throws IOException
-    */
-     
+     * Sends the client's intent to be ready.
+     * Can also be used to toggle the ready state if coded on the server-side
+     * 
+     * @throws IOException
+     */
     private void sendReady() throws IOException {
         ReadyPayload rp = new ReadyPayload();
         // rp.setReady(true); // <- technically not needed as we'll use the payload type
@@ -423,7 +440,7 @@ public enum Client {
     // Start process*() methods
     private void processResetTurn() {
         knownClients.values().forEach(cp -> cp.setTookTurn(false));
-        System.out.println("Ready status turn for everyone");
+        System.out.println("Turn status reset for everyone");
     }
 
     private void processTurn(Payload payload) {
