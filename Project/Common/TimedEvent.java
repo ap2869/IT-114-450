@@ -100,7 +100,7 @@ public class TimedEvent {
      * @param args
      */
     public static void main(String args[]) {
-        TimedEvent cd = new TimedEvent(30, () -> {
+        TimedEvent cd = new TimedEvent(20, () -> {
             System.out.println("Time expired");
         });
         cd.setTickCallback((tick) -> {

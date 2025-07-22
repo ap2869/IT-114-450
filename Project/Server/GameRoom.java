@@ -2,7 +2,9 @@ package Project.Server;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import Project.Common.Constants;
@@ -42,7 +44,6 @@ public class GameRoom extends BaseGameRoom {
     /** {@inheritDoc} */
     @Override
     protected void onClientRemoved(ServerThread sp) {
-        // added after Summer 2024 Demo
         // Stops the timers so room can clean up
         LoggerUtil.INSTANCE.info("Player Removed, remaining: " + clientsInRoom.size());
         long removedClient = sp.getClientId();
@@ -59,7 +60,7 @@ public class GameRoom extends BaseGameRoom {
 
     // timer handlers
     private void startRoundTimer() {
-        roundTimer = new TimedEvent(30, () -> onRoundEnd());
+        roundTimer = new TimedEvent(20, () -> onRoundEnd());
         roundTimer.setTickCallback((time) -> System.out.println("Round Time: " + time));
     }
 
@@ -71,7 +72,7 @@ public class GameRoom extends BaseGameRoom {
     }
 
     private void startTurnTimer() {
-        turnTimer = new TimedEvent(30, () -> onTurnEnd());
+        turnTimer = new TimedEvent(20, () -> onTurnEnd());
         turnTimer.setTickCallback((time) -> System.out.println("Turn Time: " + time));
     }
 
@@ -125,7 +126,7 @@ public class GameRoom extends BaseGameRoom {
             e.printStackTrace();
         }
         startTurnTimer();
-        LoggerUtil.INSTANCE.info("onTurnStart() end");
+        LoggerUtil.INSTANCE.info("onTurnStart() end"); 
     }
 
     // Note: logic between Turn Start and Turn End is typically handled via timers
@@ -178,7 +179,6 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("onSessionEnd() end");
     }
     // end lifecycle methods
-
     // send/sync data to ServerThread(s)
     private void sendResetTurnStatus() {
         clientsInRoom.values().forEach(spInRoom -> {
@@ -319,21 +319,19 @@ public class GameRoom extends BaseGameRoom {
      *                    additional actions or information)
      */
     protected void handleTurnAction(ServerThread currentUser, String exampleText) {
-        // check if the client is in the room
         try {
             checkPlayerInRoom(currentUser);
             checkCurrentPhase(currentUser, Phase.IN_PROGRESS);
             checkCurrentPlayer(currentUser.getClientId());
             checkIsReady(currentUser);
             if (currentUser.didTakeTurn()) {
-                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already taken your turn this round");
+                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "");
                 return;
             }
             currentUser.setTookTurn(true);
             // TODO handle example text possibly or other turn related intention from client
             sendTurnStatus(currentUser, currentUser.didTakeTurn());
-            // finished processing the turn
-            onTurnEnd();
+            ChoiceInput(currentUser, exampleText.trim());
         } catch (NotPlayersTurnException e) {
             currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "It's not your turn");
             LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
@@ -352,5 +350,72 @@ public class GameRoom extends BaseGameRoom {
         }
     }
 
-    // end receive data from ServerThread (GameRoom specific)
+        // ------------------------------------------------------------------------\/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ 
+
+
+    private final Map<Long, Choice> playerChoice = new HashMap<>();
+
+    public enum Choice {
+
+        ROCK,
+        PAPER,
+        SCISSOR
+
+    }
+
+    private void ChoiceInput(ServerThread player, String textChoice) {
+        try {
+            Choice choice;
+            try {
+                choice = Choice.valueOf(textChoice.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                player.sendMessage(Constants.DEFAULT_CLIENT_ID, "Please Choose ROCK, PAPER, or SCISSOR");
+                return;
+            }
+    
+            playerChoice.put(player.getClientId(), choice);
+            player.sendMessage(Constants.DEFAULT_CLIENT_ID, "You Chose: " + choice);
+    
+            if (ChoicesEntered()) {
+                gameRound();
+            }
+        } catch (Exception e) {
+            LoggerUtil.INSTANCE.severe("ChoiceInput exception", e);
+        }
+    }
+
+    private boolean ChoicesEntered() {
+        long playerReady = clientsInRoom.values().stream().filter(ServerThread::isReady).count();
+        return playerChoice.size() == playerReady;
+    }
+
+    private void gameRound() {
+        List<Long> playerName = new ArrayList<>(playerChoice.keySet());
+    
+        Long player1 = playerName.get(0);
+        Long player2 = playerName.get(1);
+        Choice choice1 = playerChoice.get(player1);
+        Choice choice2 = playerChoice.get(player2);
+    
+        String player1Name = clientsInRoom.get(player1).getDisplayName();
+        String player2Name = clientsInRoom.get(player2).getDisplayName();
+    
+        String Winner;
+        if (choice1 == choice2) {
+            Winner = String.format("Draw! You Both Have Choosen %s.", choice1);
+        } else if (
+            (choice1 == Choice.ROCK && choice2 == Choice.SCISSOR) ||
+            (choice1 == Choice.PAPER && choice2 == Choice.ROCK) ||
+            (choice1 == Choice.SCISSOR && choice2 == Choice.PAPER)
+        ) {
+            Winner = String.format("WINNER!! %s ", player1Name);
+        } else {
+            Winner = String.format("WINNER!! %s ", player2Name);
+        }
+    
+        relay(null, Winner);
+        playerChoice.clear();
+    }
+
+     // ----------------------------------------------------------------------- /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ 
 }

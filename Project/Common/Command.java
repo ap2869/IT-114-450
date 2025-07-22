@@ -12,10 +12,10 @@ public enum Command {
     LEAVE_ROOM("leaveroom"),
     JOIN_ROOM("joinroom"),
     NAME("name"),
-    LIST_USERS("users"), 
+    LIST_USERS("players"), 
     LIST_ROOMS("listrooms"),
     READY ("ready"),
-    EXAMPLE_TURN ("exampleturn");
+    MY_TURN ("myturn");
 
     private static final HashMap<String, Command> BY_COMMAND = new HashMap<>();
     static {

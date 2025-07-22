@@ -122,7 +122,7 @@ public abstract class BaseGameRoom extends Room {
             resetReadyTimer();
         }
         if (readyTimer == null) {
-            readyTimer = new TimedEvent(30, () -> {
+            readyTimer = new TimedEvent(20, () -> {
                 // callback to trigger when ready expires
                 checkReadyStatus();
             });
