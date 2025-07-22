@@ -609,4 +609,9 @@ public enum LoggerUtil {
         // Keep calling itself to cause a StackOverflowError
         recursiveMethod(depth + 1);
     }
+
+    public void error(String string) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'error'");
+    }
 }

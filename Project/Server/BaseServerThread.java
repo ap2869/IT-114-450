@@ -17,7 +17,7 @@ public abstract class BaseServerThread extends Thread {
     protected boolean isRunning = false; // control variable to stop this thread
     protected ObjectOutputStream out; // exposed here for send()
     protected Socket client; // communication directly to "my" client
-    private User user = new User();
+    protected User user = new User();
     protected Room currentRoom;
 
     /**
@@ -184,7 +184,13 @@ public abstract class BaseServerThread extends Thread {
                     info("IO exception while reading from client");
                     e.printStackTrace();
                     break;
+
+                } catch (Exception e) {
+                    info("Unexpexted exception while reading the client. ");
+                    e.printStackTrace();
+                    break;
                 }
+                
             } // close while loop
         } catch (Exception e) {
             // happens when client disconnects
