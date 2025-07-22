@@ -1,5 +1,6 @@
 package Project.Server;
 
+import java.io.IOException;
 import java.net.Socket;
 import java.util.List;
 import java.util.Objects;
@@ -229,6 +230,12 @@ public class ServerThread extends BaseServerThread {
             case ROOM_LIST:
                 currentRoom.handleListRooms(this, incoming.getMessage());
                 break;
+            case ROCK:
+                break;
+            case PAPER:
+                break;
+            case SCISSOR:
+                break;   
             case READY:
                 // no data needed as the intent will be used as the trigger
                 try {
@@ -275,4 +282,14 @@ public class ServerThread extends BaseServerThread {
         // once receiving the desired client name the object is ready
         onInitializationComplete.accept(this);
     }
-} 
+
+    public void send(Payload p) {
+        try {
+            if (out != null) {
+                out.writeObject(p);
+                out.flush();
+            }
+        } catch (IOException e) {
+            LoggerUtil.INSTANCE.error("Error has occured when sending payload: " + e.getMessage());
+        }
+    }}
