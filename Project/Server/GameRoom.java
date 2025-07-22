@@ -4,13 +4,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Random;
 import java.util.stream.Collectors;
+import java.util.Map;
 
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
 import Project.Common.Phase;
 import Project.Common.TimedEvent;
+import Project.Common.TimerType;
 import Project.Exceptions.MissingCurrentPlayerException;
 import Project.Exceptions.NotPlayersTurnException;
 import Project.Exceptions.NotReadyException;
@@ -36,9 +38,17 @@ public class GameRoom extends BaseGameRoom {
     @Override
     protected void onClientAdded(ServerThread sp) {
         // sync GameRoom state to new client
+
         syncCurrentPhase(sp);
+        // sync only what's necessary for the specific phase
+        // if you blindly sync everything, you'll get visual artifacts/discrepancies
         syncReadyStatus(sp);
-        syncTurnStatus(sp);
+        if (currentPhase != Phase.READY) {
+            syncTurnStatus(sp); // turn/ready use the same visual process so ensure turn status is only called
+                                // outside of ready phase
+            syncPlayerPoints(sp);
+        }
+
     }
 
     /** {@inheritDoc} */
@@ -61,25 +71,33 @@ public class GameRoom extends BaseGameRoom {
     // timer handlers
     private void startRoundTimer() {
         roundTimer = new TimedEvent(20, () -> onRoundEnd());
-        roundTimer.setTickCallback((time) -> System.out.println("Round Time: " + time));
+        roundTimer.setTickCallback((time) -> {
+            System.out.println("Round Time: " + time);
+            sendCurrentTime(TimerType.ROUND, time);
+        });
     }
 
     private void resetRoundTimer() {
         if (roundTimer != null) {
             roundTimer.cancel();
             roundTimer = null;
+            sendCurrentTime(TimerType.ROUND, -1);
         }
     }
 
     private void startTurnTimer() {
-        turnTimer = new TimedEvent(20, () -> onTurnEnd());
-        turnTimer.setTickCallback((time) -> System.out.println("Turn Time: " + time));
+        turnTimer = new TimedEvent(30, () -> onTurnEnd());
+        turnTimer.setTickCallback((time) -> {
+            System.out.println("Turn Time: " + time);
+            sendCurrentTime(TimerType.TURN, time);
+        });
     }
 
     private void resetTurnTimer() {
         if (turnTimer != null) {
             turnTimer.cancel();
             turnTimer = null;
+            sendCurrentTime(TimerType.TURN, -1);
         }
     }
     // end timer handlers
@@ -105,7 +123,8 @@ public class GameRoom extends BaseGameRoom {
         resetRoundTimer();
         resetTurnStatus();
         round++;
-        relay(null, String.format("Round %d has started", round));
+        // relay(null, String.format("Round %d has started", round));
+        sendGameEvent(String.format("Round %d has started", round));
         // startRoundTimer(); Round timers aren't needed for turns
         // if you do decide to use it, ensure it's reasonable and based on the number of
         // players
@@ -120,13 +139,14 @@ public class GameRoom extends BaseGameRoom {
         resetTurnTimer();
         try {
             ServerThread currentPlayer = getNextPlayer();
-            relay(null, String.format("It's %s's turn", currentPlayer.getDisplayName()));
+            // relay(null, String.format("It's %s's turn", currentPlayer.getDisplayName()));
+            sendGameEvent(String.format("It's %s's turn", currentPlayer.getDisplayName()));
         } catch (MissingCurrentPlayerException | PlayerNotFoundException e) {
 
             e.printStackTrace();
         }
         startTurnTimer();
-        LoggerUtil.INSTANCE.info("onTurnStart() end"); 
+        LoggerUtil.INSTANCE.info("onTurnStart() end");
     }
 
     // Note: logic between Turn Start and Turn End is typically handled via timers
@@ -180,6 +200,30 @@ public class GameRoom extends BaseGameRoom {
     }
     // end lifecycle methods
     // send/sync data to ServerThread(s)
+    private void syncPlayerPoints(ServerThread incomingClient) {
+        clientsInRoom.values().forEach(serverUser -> {
+            if (serverUser.getClientId() != incomingClient.getClientId()) {
+                boolean failedToSync = !incomingClient.sendPlayerPoints(serverUser.getClientId(),
+                        serverUser.getPoints());
+                if (failedToSync) {
+                    LoggerUtil.INSTANCE.warning(
+                            String.format("Removing disconnected %s from list", serverUser.getDisplayName()));
+                    disconnect(serverUser);
+                }
+            }
+        });
+    }
+
+    private void sendPlayerPoints(ServerThread sp) {
+        clientsInRoom.values().removeIf(spInRoom -> {
+            boolean failedToSend = !spInRoom.sendPlayerPoints(sp.getClientId(), sp.getPoints());
+            if (failedToSend) {
+                removeClient(spInRoom);
+            }
+            return failedToSend;
+        });
+    }
+
     private void sendResetTurnStatus() {
         clientsInRoom.values().forEach(spInRoom -> {
             boolean failedToSend = !spInRoom.sendResetTurnStatus();
@@ -294,7 +338,10 @@ public class GameRoom extends BaseGameRoom {
                 .filter(sp -> sp.isReady() && sp.didTakeTurn())
                 .toList().size();
         if (numReady == numTookTurn) {
-            relay(null,
+            // relay(null,
+            // String.format("All players have taken their turn (%d/%d) ending the round",
+            // numTookTurn, numReady));
+            sendGameEvent(
                     String.format("All players have taken their turn (%d/%d) ending the round", numTookTurn, numReady));
             onRoundEnd();
         }
@@ -319,19 +366,29 @@ public class GameRoom extends BaseGameRoom {
      *                    additional actions or information)
      */
     protected void handleTurnAction(ServerThread currentUser, String exampleText) {
+        // check if the client is in the room
         try {
             checkPlayerInRoom(currentUser);
             checkCurrentPhase(currentUser, Phase.IN_PROGRESS);
             checkCurrentPlayer(currentUser.getClientId());
             checkIsReady(currentUser);
             if (currentUser.didTakeTurn()) {
-                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "");
+                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already taken your turn this round");
                 return;
+            }
+            // example points
+            int points = new Random().nextInt(4) == 3 ? 1 : 0;
+            sendGameEvent(String.format("%s %s", currentUser.getDisplayName(),
+                    points > 0 ? "gained a point" : "didn't gain a point"));
+            if (points > 0) {
+                currentUser.changePoints(points);
+                sendPlayerPoints(currentUser);
             }
             currentUser.setTookTurn(true);
             // TODO handle example text possibly or other turn related intention from client
             sendTurnStatus(currentUser, currentUser.didTakeTurn());
-            ChoiceInput(currentUser, exampleText.trim());
+            // finished processing the turn
+            onTurnEnd();
         } catch (NotPlayersTurnException e) {
             currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "It's not your turn");
             LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);

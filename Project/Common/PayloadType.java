@@ -26,5 +26,7 @@ public enum PayloadType {
        RESET_TURN,  // trigger to tell client to reset their local list turn status
        ROCK,
        PAPER,
-       SCISSOR
+       SCISSOR,
+       TIME, // syncs current time of various timers
+       POINTS, // syncs points data
 }
