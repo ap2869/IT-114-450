@@ -30,6 +30,15 @@ public class GameRoom extends BaseGameRoom {
     private long currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
     private int round = 0;
 
+    // Rock Paper Scissors Implementation
+    private final Map<Long, Choice> playerChoice = new HashMap<>();
+
+    public enum Choice {
+        ROCK,
+        PAPER,
+        SCISSORS
+    }
+
     public GameRoom(String name) {
         super(name);
     }
@@ -58,6 +67,8 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("Player Removed, remaining: " + clientsInRoom.size());
         long removedClient = sp.getClientId();
         turnOrder.removeIf(player -> player.getClientId() == sp.getClientId());
+        playerChoice.remove(removedClient); // Remove from RPS choices
+
         if (clientsInRoom.isEmpty()) {
             resetReadyTimer();
             resetTurnTimer();
@@ -65,12 +76,15 @@ public class GameRoom extends BaseGameRoom {
             onSessionEnd();
         } else if (removedClient == currentTurnClientId) {
             onTurnStart();
+        } else if (playerChoice.size() > 0 && allPlayersChose()) {
+            // If remaining players have all chosen, process the round
+            processRPSRound();
         }
     }
 
     // timer handlers
     private void startRoundTimer() {
-        roundTimer = new TimedEvent(20, () -> onRoundEnd());
+        roundTimer = new TimedEvent(15, () -> onRoundEnd()); // Increased time for RPS
         roundTimer.setTickCallback((time) -> {
             System.out.println("Round Time: " + time);
             sendCurrentTime(TimerType.ROUND, time);
@@ -86,7 +100,7 @@ public class GameRoom extends BaseGameRoom {
     }
 
     private void startTurnTimer() {
-        turnTimer = new TimedEvent(30, () -> onTurnEnd());
+        turnTimer = new TimedEvent(10, () -> onTurnEnd());
         turnTimer.setTickCallback((time) -> {
             System.out.println("Turn Time: " + time);
             sendCurrentTime(TimerType.TURN, time);
@@ -112,6 +126,7 @@ public class GameRoom extends BaseGameRoom {
         currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
         setTurnOrder();
         round = 0;
+        playerChoice.clear(); // Clear any existing choices
         LoggerUtil.INSTANCE.info("onSessionStart() end");
         onRoundStart();
     }
@@ -122,14 +137,14 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("onRoundStart() start");
         resetRoundTimer();
         resetTurnStatus();
+        playerChoice.clear(); // Clear choices from previous round
         round++;
-        // relay(null, String.format("Round %d has started", round));
-        sendGameEvent(String.format("Round %d has started", round));
-        // startRoundTimer(); Round timers aren't needed for turns
-        // if you do decide to use it, ensure it's reasonable and based on the number of
-        // players
+
+        sendGameEvent(String.format("Round %d - Make your choice: ROCK, PAPER, or SCISSORS!", round));
+        startRoundTimer(); // Start timer for players to make choices
+
+        // For RPS, we don't need individual turns - all players choose simultaneously
         LoggerUtil.INSTANCE.info("onRoundStart() end");
-        onTurnStart();
     }
 
     /** {@inheritDoc} */
@@ -139,40 +154,31 @@ public class GameRoom extends BaseGameRoom {
         resetTurnTimer();
         try {
             ServerThread currentPlayer = getNextPlayer();
-            // relay(null, String.format("It's %s's turn", currentPlayer.getDisplayName()));
             sendGameEvent(String.format("It's %s's turn", currentPlayer.getDisplayName()));
         } catch (MissingCurrentPlayerException | PlayerNotFoundException e) {
-
             e.printStackTrace();
         }
         startTurnTimer();
         LoggerUtil.INSTANCE.info("onTurnStart() end");
     }
 
-    // Note: logic between Turn Start and Turn End is typically handled via timers
-    // and user interaction
     /** {@inheritDoc} */
     @Override
     protected void onTurnEnd() {
         LoggerUtil.INSTANCE.info("onTurnEnd() start");
         resetTurnTimer(); // reset timer if turn ended without the time expiring
         try {
-            // optionally can use checkAllTookTurn();
             if (isLastPlayer()) {
-                // if the current player is the last player in the turn order, end the round
                 onRoundEnd();
             } else {
                 onTurnStart();
             }
         } catch (MissingCurrentPlayerException | PlayerNotFoundException e) {
-
             e.printStackTrace();
         }
         LoggerUtil.INSTANCE.info("onTurnEnd() end");
     }
 
-    // Note: logic between Round Start and Round End is typically handled via timers
-    // and user interaction
     /** {@inheritDoc} */
     @Override
     protected void onRoundEnd() {
@@ -180,7 +186,7 @@ public class GameRoom extends BaseGameRoom {
         resetRoundTimer(); // reset timer if round ended without the time expiring
 
         LoggerUtil.INSTANCE.info("onRoundEnd() end");
-        if (round >= 3) {
+        if (round >= 5) { // Best of 5 for RPS
             onSessionEnd();
         } else {
             onRoundStart();
@@ -193,12 +199,18 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("onSessionEnd() start");
         turnOrder.clear();
         currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
+        playerChoice.clear(); // Clear RPS choices
         resetReadyStatus();
         resetTurnStatus();
+
+        // Announce final scores
+        announceFinalScores();
+
         changePhase(Phase.READY);
         LoggerUtil.INSTANCE.info("onSessionEnd() end");
     }
     // end lifecycle methods
+
     // send/sync data to ServerThread(s)
     private void syncPlayerPoints(ServerThread incomingClient) {
         clientsInRoom.values().forEach(serverUser -> {
@@ -267,43 +279,39 @@ public class GameRoom extends BaseGameRoom {
         sendResetTurnStatus();
     }
 
-    /**
-     * Sets `turnOrder` to a shuffled list of players who are ready.
-     */
     private void setTurnOrder() {
         turnOrder.clear();
         turnOrder = clientsInRoom.values().stream().filter(ServerThread::isReady).collect(Collectors.toList());
         Collections.shuffle(turnOrder);
     }
 
-    /**
-     * Gets the current player based on the `currentTurnClientId`.
-     * 
-     * @return
-     * @throws MissingCurrentPlayerException
-     * @throws PlayerNotFoundException
-     */
+    private void announceFinalScores() {
+        StringBuilder scoreMessage = new StringBuilder("🏆 FINAL SCORES 🏆\n");
+
+        List<ServerThread> sortedPlayers = clientsInRoom.values().stream()
+                .sorted((p1, p2) -> Integer.compare(p2.getPoints(), p1.getPoints()))
+                .collect(Collectors.toList());
+
+        for (int i = 0; i < sortedPlayers.size(); i++) {
+            ServerThread player = sortedPlayers.get(i);
+            String medal = i == 0 ? "🥇" : i == 1 ? "🥈" : i == 2 ? "🥉" : "  ";
+            scoreMessage.append(String.format("%s %s: %d points\n",
+                    medal, player.getDisplayName(), player.getPoints()));
+        }
+
+        sendGameEvent(scoreMessage.toString());
+    }
+
     private ServerThread getCurrentPlayer() throws MissingCurrentPlayerException, PlayerNotFoundException {
-        // quick early exit
         if (currentTurnClientId == Constants.DEFAULT_CLIENT_ID) {
             throw new MissingCurrentPlayerException("Current Player not set");
         }
         return turnOrder.stream()
                 .filter(sp -> sp.getClientId() == currentTurnClientId)
                 .findFirst()
-                // this shouldn't occur but is included as a "just in case"
                 .orElseThrow(() -> new PlayerNotFoundException("Current player not found in turn order"));
     }
 
-    /**
-     * Gets the next player in the turn order.
-     * If the current player is the last in the turn order, it wraps around
-     * (round-robin).
-     * 
-     * @return
-     * @throws MissingCurrentPlayerException
-     * @throws PlayerNotFoundException
-     */
     private ServerThread getNextPlayer() throws MissingCurrentPlayerException, PlayerNotFoundException {
         int index = 0;
         if (currentTurnClientId != Constants.DEFAULT_CLIENT_ID) {
@@ -317,15 +325,7 @@ public class GameRoom extends BaseGameRoom {
         return nextPlayer;
     }
 
-    /**
-     * Checks if the current player is the last player in the turn order.
-     * 
-     * @return
-     * @throws MissingCurrentPlayerException
-     * @throws PlayerNotFoundException
-     */
     private boolean isLastPlayer() throws MissingCurrentPlayerException, PlayerNotFoundException {
-        // check if the current player is the last player in the turn order
         return turnOrder.indexOf(getCurrentPlayer()) == (turnOrder.size() - 1);
     }
 
@@ -334,13 +334,9 @@ public class GameRoom extends BaseGameRoom {
                 .filter(sp -> sp.isReady())
                 .toList().size();
         int numTookTurn = clientsInRoom.values().stream()
-                // ensure to verify the isReady part since it's against the original list
                 .filter(sp -> sp.isReady() && sp.didTakeTurn())
                 .toList().size();
         if (numReady == numTookTurn) {
-            // relay(null,
-            // String.format("All players have taken their turn (%d/%d) ending the round",
-            // numTookTurn, numReady));
             sendGameEvent(
                     String.format("All players have taken their turn (%d/%d) ending the round", numTookTurn, numReady));
             onRoundEnd();
@@ -353,125 +349,198 @@ public class GameRoom extends BaseGameRoom {
             throw new NotPlayersTurnException("You are not the current player");
         }
     }
-
     // end check methods
 
     // receive data from ServerThread (GameRoom specific)
 
     /**
-     * Handles the turn action from the client.
+     * Handles the RPS choice from the client.
      * 
-     * @param currentUser
-     * @param exampleText (arbitrary text from the client, can be used for
-     *                    additional actions or information)
+     * @param currentUser The player making the choice
+     * @param choice      The RPS choice (ROCK, PAPER, SCISSORS)
      */
-    protected void handleTurnAction(ServerThread currentUser, String exampleText) {
-        // check if the client is in the room
+    protected void handleTurnAction(ServerThread currentUser, String choice) {
         try {
             checkPlayerInRoom(currentUser);
             checkCurrentPhase(currentUser, Phase.IN_PROGRESS);
-            checkCurrentPlayer(currentUser.getClientId());
             checkIsReady(currentUser);
+
             if (currentUser.didTakeTurn()) {
-                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already taken your turn this round");
+                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You have already made your choice this round");
                 return;
             }
-            // example points
-            int points = new Random().nextInt(4) == 3 ? 1 : 0;
-            sendGameEvent(String.format("%s %s", currentUser.getDisplayName(),
-                    points > 0 ? "gained a point" : "didn't gain a point"));
-            if (points > 0) {
-                currentUser.changePoints(points);
-                sendPlayerPoints(currentUser);
-            }
-            currentUser.setTookTurn(true);
-            // TODO handle example text possibly or other turn related intention from client
-            sendTurnStatus(currentUser, currentUser.didTakeTurn());
-            // finished processing the turn
-            onTurnEnd();
-        } catch (NotPlayersTurnException e) {
-            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "It's not your turn");
-            LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
+
+            // Process RPS choice
+            processRPSChoice(currentUser, choice);
+
         } catch (NotReadyException e) {
-            // The check method already informs the currentUser
             LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
         } catch (PlayerNotFoundException e) {
-            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to do the ready check");
+            currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, "You must be in a GameRoom to make a choice");
             LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
         } catch (PhaseMismatchException e) {
             currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID,
-                    "You can only take a turn during the IN_PROGRESS phase");
+                    "You can only make choices during the IN_PROGRESS phase");
             LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
         } catch (Exception e) {
             LoggerUtil.INSTANCE.severe("handleTurnAction exception", e);
         }
     }
 
-        // ------------------------------------------------------------------------\/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ 
+    // Rock Paper Scissors Methods
 
-
-    private final Map<Long, Choice> playerChoice = new HashMap<>();
-
-    public enum Choice {
-
-        ROCK,
-        PAPER,
-        SCISSOR
-
-    }
-
-    private void ChoiceInput(ServerThread player, String textChoice) {
+    private void processRPSChoice(ServerThread player, String textChoice) {
         try {
             Choice choice;
             try {
-                choice = Choice.valueOf(textChoice.toUpperCase());
+                // Handle both SCISSOR and SCISSORS for compatibility
+                if (textChoice.toUpperCase().equals("SCISSOR")) {
+                    choice = Choice.SCISSORS;
+                } else {
+                    choice = Choice.valueOf(textChoice.toUpperCase());
+                }
             } catch (IllegalArgumentException e) {
-                player.sendMessage(Constants.DEFAULT_CLIENT_ID, "Please Choose ROCK, PAPER, or SCISSOR");
+                player.sendMessage(Constants.DEFAULT_CLIENT_ID, "Please choose ROCK, PAPER, or SCISSORS");
                 return;
             }
-    
+
             playerChoice.put(player.getClientId(), choice);
-            player.sendMessage(Constants.DEFAULT_CLIENT_ID, "You Chose: " + choice);
-    
-            if (ChoicesEntered()) {
-                gameRound();
+            player.sendMessage(Constants.DEFAULT_CLIENT_ID, "You chose: " + choice);
+            player.setTookTurn(true);
+            sendTurnStatus(player, true);
+
+            // Check if all players have made their choice
+            if (allPlayersChose()) {
+                processRPSRound();
+            } else {
+                // Let everyone know how many players still need to choose
+                int playersReady = (int) clientsInRoom.values().stream().filter(ServerThread::isReady).count();
+                int playersChosen = playerChoice.size();
+                sendGameEvent(String.format("Waiting for choices... (%d/%d players have chosen)",
+                        playersChosen, playersReady));
             }
         } catch (Exception e) {
-            LoggerUtil.INSTANCE.severe("ChoiceInput exception", e);
+            LoggerUtil.INSTANCE.severe("processRPSChoice exception", e);
         }
     }
 
-    private boolean ChoicesEntered() {
-        long playerReady = clientsInRoom.values().stream().filter(ServerThread::isReady).count();
-        return playerChoice.size() == playerReady;
+    private boolean allPlayersChose() {
+        long playersReady = clientsInRoom.values().stream().filter(ServerThread::isReady).count();
+        return playerChoice.size() == playersReady;
     }
 
-    private void gameRound() {
-        List<Long> playerName = new ArrayList<>(playerChoice.keySet());
-    
-        Long player1 = playerName.get(0);
-        Long player2 = playerName.get(1);
-        Choice choice1 = playerChoice.get(player1);
-        Choice choice2 = playerChoice.get(player2);
-    
-        String player1Name = clientsInRoom.get(player1).getDisplayName();
-        String player2Name = clientsInRoom.get(player2).getDisplayName();
-    
-        String Winner;
+    private void processRPSRound() {
+        try {
+            if (playerChoice.size() < 2) {
+                sendGameEvent("Not enough players for Rock Paper Scissors");
+                clearChoicesAndEndRound();
+                return;
+            }
+
+            List<Long> playerIds = new ArrayList<>(playerChoice.keySet());
+
+            if (playerIds.size() == 2) {
+                // Two player game
+                processTwoPlayerRPS(playerIds.get(0), playerIds.get(1));
+            } else {
+                // Multi-player game
+                processMultiPlayerRPS(playerIds);
+            }
+
+            clearChoicesAndEndRound();
+
+        } catch (Exception e) {
+            LoggerUtil.INSTANCE.severe("processRPSRound exception", e);
+            clearChoicesAndEndRound();
+        }
+    }
+
+    private void processTwoPlayerRPS(Long player1Id, Long player2Id) {
+        Choice choice1 = playerChoice.get(player1Id);
+        Choice choice2 = playerChoice.get(player2Id);
+
+        ServerThread player1 = clientsInRoom.get(player1Id);
+        ServerThread player2 = clientsInRoom.get(player2Id);
+
+        String player1Name = player1.getDisplayName();
+        String player2Name = player2.getDisplayName();
+
+        // Announce the choices
+        sendGameEvent(String.format("⚔️ %s chose %s vs %s chose %s",
+                player1Name, choice1, player2Name, choice2));
+
+        String result;
         if (choice1 == choice2) {
-            Winner = String.format("Draw! You Both Have Choosen %s.", choice1);
-        } else if (
-            (choice1 == Choice.ROCK && choice2 == Choice.SCISSOR) ||
-            (choice1 == Choice.PAPER && choice2 == Choice.ROCK) ||
-            (choice1 == Choice.SCISSOR && choice2 == Choice.PAPER)
-        ) {
-            Winner = String.format("WINNER!! %s ", player1Name);
+            result = String.format("🤝 It's a tie! Both chose %s", choice1);
+        } else if (isWinningChoice(choice1, choice2)) {
+            result = String.format("🏆 %s wins with %s!", player1Name, choice1);
+            player1.changePoints(1);
+            sendPlayerPoints(player1);
         } else {
-            Winner = String.format("WINNER!! %s ", player2Name);
+            result = String.format("🏆 %s wins with %s!", player2Name, choice2);
+            player2.changePoints(1);
+            sendPlayerPoints(player2);
         }
-    
-        relay(null, Winner);
+
+        sendGameEvent(result);
+    }
+
+    private void processMultiPlayerRPS(List<Long> playerIds) {
+        // Group players by their choice
+        Map<Choice, List<Long>> choiceGroups = new HashMap<>();
+        for (Long playerId : playerIds) {
+            Choice choice = playerChoice.get(playerId);
+            choiceGroups.computeIfAbsent(choice, k -> new ArrayList<>()).add(playerId);
+        }
+
+        // Announce all choices
+        StringBuilder choiceAnnouncement = new StringBuilder("⚔️ Choices: ");
+        for (Long playerId : playerIds) {
+            String playerName = clientsInRoom.get(playerId).getDisplayName();
+            Choice choice = playerChoice.get(playerId);
+            choiceAnnouncement.append(String.format("%s=%s ", playerName, choice));
+        }
+        sendGameEvent(choiceAnnouncement.toString());
+
+        // Determine winners
+        List<Choice> presentChoices = new ArrayList<>(choiceGroups.keySet());
+
+        if (presentChoices.size() == 1) {
+            sendGameEvent("🤝 Everyone chose the same thing - it's a tie!");
+        } else if (presentChoices.size() == 3) {
+            sendGameEvent("🤝 All three choices present - it's a tie!");
+        } else {
+            // Two choices present - determine winner
+            Choice choice1 = presentChoices.get(0);
+            Choice choice2 = presentChoices.get(1);
+
+            Choice winningChoice = isWinningChoice(choice1, choice2) ? choice1 : choice2;
+            List<Long> winners = choiceGroups.get(winningChoice);
+
+            // Award points to winners
+            for (Long winnerId : winners) {
+                ServerThread winner = clientsInRoom.get(winnerId);
+                winner.changePoints(1);
+                sendPlayerPoints(winner);
+            }
+
+            String winnerNames = winners.stream()
+                    .map(id -> clientsInRoom.get(id).getDisplayName())
+                    .collect(Collectors.joining(", "));
+
+            sendGameEvent(String.format("🏆 Winners: %s with %s!", winnerNames, winningChoice));
+        }
+    }
+
+    private boolean isWinningChoice(Choice choice1, Choice choice2) {
+        return (choice1 == Choice.ROCK && choice2 == Choice.SCISSORS) ||
+                (choice1 == Choice.PAPER && choice2 == Choice.ROCK) ||
+                (choice1 == Choice.SCISSORS && choice2 == Choice.PAPER);
+    }
+
+    private void clearChoicesAndEndRound() {
         playerChoice.clear();
+        onRoundEnd();
     }
 
      // ----------------------------------------------------------------------- /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ 

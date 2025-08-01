@@ -62,7 +62,7 @@ public class ClientUI extends JFrame implements ICardControls, IConnectionEvents
 
             try {
 
-                new ClientUI("MT85-Client");
+                new ClientUI("AP2869-Client");
 
             } catch (Throwable t) {
                 LoggerUtil.INSTANCE.severe("Unhandled exception in main thread", t);
