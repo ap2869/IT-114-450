@@ -14,18 +14,24 @@ public class PlayView extends JPanel {
     public PlayView(String name){
         this.setName(name);
 
-        // example user interaction
-        JButton doSomething = new JButton("Do Something");
-        doSomething.addActionListener(_ -> {
-            try {
-                Client.INSTANCE.sendDoTurn("example");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
-        buttonPanel.add(doSomething);
+        // Create Rock, Paper, Scissors buttons using a cleaner approach
+        String[] choices = {"Rock", "Paper", "Scissors"};
+        
+        for (String choice : choices) {
+            JButton button = new JButton(choice);
+            button.addActionListener(_ -> {
+                try {
+                    Client.INSTANCE.sendDoTurn(choice.toLowerCase());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+            buttonPanel.add(button);
+        }
+        
         this.add(buttonPanel);
     }
+    
     public void changePhase(Phase phase){
         if (phase == Phase.READY) {
             buttonPanel.setVisible(false);
@@ -33,5 +39,4 @@ public class PlayView extends JPanel {
             buttonPanel.setVisible(true);
         }
     }
-    
 }
