@@ -67,7 +67,7 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("Player Removed, remaining: " + clientsInRoom.size());
         long removedClient = sp.getClientId();
         turnOrder.removeIf(player -> player.getClientId() == sp.getClientId());
-        playerChoice.remove(removedClient); // Remove from RPS choices
+        playerChoice.remove(removedClient); 
 
         if (clientsInRoom.isEmpty()) {
             resetReadyTimer();
@@ -84,7 +84,7 @@ public class GameRoom extends BaseGameRoom {
 
     // timer handlers
     private void startRoundTimer() {
-        roundTimer = new TimedEvent(15, () -> onRoundEnd()); // Increased time for RPS
+        roundTimer = new TimedEvent(15, () -> onRoundEnd()); 
         roundTimer.setTickCallback((time) -> {
             System.out.println("Round Time: " + time);
             sendCurrentTime(TimerType.ROUND, time);
@@ -126,7 +126,7 @@ public class GameRoom extends BaseGameRoom {
         currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
         setTurnOrder();
         round = 0;
-        playerChoice.clear(); // Clear any existing choices
+        playerChoice.clear(); 
         LoggerUtil.INSTANCE.info("onSessionStart() end");
         onRoundStart();
     }
@@ -204,7 +204,7 @@ public class GameRoom extends BaseGameRoom {
         resetTurnStatus();
 
         // Announce final scores
-        announceFinalScores();
+        FinalScores();
 
         changePhase(Phase.READY);
         LoggerUtil.INSTANCE.info("onSessionEnd() end");
@@ -285,8 +285,8 @@ public class GameRoom extends BaseGameRoom {
         Collections.shuffle(turnOrder);
     }
 
-    private void announceFinalScores() {
-        StringBuilder scoreMessage = new StringBuilder("🏆 FINAL SCORES 🏆\n");
+    private void FinalScores() {
+        StringBuilder scoreMessage = new StringBuilder("** FINAL SCORES ** \n");
 
         List<ServerThread> sortedPlayers = clientsInRoom.values().stream()
                 .sorted((p1, p2) -> Integer.compare(p2.getPoints(), p1.getPoints()))
@@ -294,7 +294,7 @@ public class GameRoom extends BaseGameRoom {
 
         for (int i = 0; i < sortedPlayers.size(); i++) {
             ServerThread player = sortedPlayers.get(i);
-            String medal = i == 0 ? "🥇" : i == 1 ? "🥈" : i == 2 ? "🥉" : "  ";
+            String medal = i == 0 ? "" : i == 1 ? "" : i == 2 ? "" : "  ";
             scoreMessage.append(String.format("%s %s: %d points\n",
                     medal, player.getDisplayName(), player.getPoints()));
         }
@@ -393,7 +393,6 @@ public class GameRoom extends BaseGameRoom {
         try {
             Choice choice;
             try {
-                // Handle both SCISSOR and SCISSORS for compatibility
                 if (textChoice.toUpperCase().equals("SCISSOR")) {
                     choice = Choice.SCISSORS;
                 } else {
@@ -409,14 +408,13 @@ public class GameRoom extends BaseGameRoom {
             player.setTookTurn(true);
             sendTurnStatus(player, true);
 
-            // Check if all players have made their choice
             if (allPlayersChose()) {
                 processRPSRound();
             } else {
-                // Let everyone know how many players still need to choose
+            
                 int playersReady = (int) clientsInRoom.values().stream().filter(ServerThread::isReady).count();
                 int playersChosen = playerChoice.size();
-                sendGameEvent(String.format("Waiting for choices... (%d/%d players have chosen)",
+                sendGameEvent(String.format("PENDING: Waiting for choices... (%d/%d players have chosen)",
                         playersChosen, playersReady));
             }
         } catch (Exception e) {
@@ -440,14 +438,11 @@ public class GameRoom extends BaseGameRoom {
             List<Long> playerIds = new ArrayList<>(playerChoice.keySet());
 
             if (playerIds.size() == 2) {
-                // Two player game
-                processTwoPlayerRPS(playerIds.get(0), playerIds.get(1));
-            } else {
                 // Multi-player game
                 processMultiPlayerRPS(playerIds);
             }
 
-            clearChoicesAndEndRound();
+        
 
         } catch (Exception e) {
             LoggerUtil.INSTANCE.severe("processRPSRound exception", e);
@@ -455,35 +450,7 @@ public class GameRoom extends BaseGameRoom {
         }
     }
 
-    private void processTwoPlayerRPS(Long player1Id, Long player2Id) {
-        Choice choice1 = playerChoice.get(player1Id);
-        Choice choice2 = playerChoice.get(player2Id);
 
-        ServerThread player1 = clientsInRoom.get(player1Id);
-        ServerThread player2 = clientsInRoom.get(player2Id);
-
-        String player1Name = player1.getDisplayName();
-        String player2Name = player2.getDisplayName();
-
-        // Announce the choices
-        sendGameEvent(String.format("⚔️ %s chose %s vs %s chose %s",
-                player1Name, choice1, player2Name, choice2));
-
-        String result;
-        if (choice1 == choice2) {
-            result = String.format("🤝 It's a tie! Both chose %s", choice1);
-        } else if (isWinningChoice(choice1, choice2)) {
-            result = String.format("🏆 %s wins with %s!", player1Name, choice1);
-            player1.changePoints(1);
-            sendPlayerPoints(player1);
-        } else {
-            result = String.format("🏆 %s wins with %s!", player2Name, choice2);
-            player2.changePoints(1);
-            sendPlayerPoints(player2);
-        }
-
-        sendGameEvent(result);
-    }
 
     private void processMultiPlayerRPS(List<Long> playerIds) {
         // Group players by their choice
@@ -492,56 +459,78 @@ public class GameRoom extends BaseGameRoom {
             Choice choice = playerChoice.get(playerId);
             choiceGroups.computeIfAbsent(choice, k -> new ArrayList<>()).add(playerId);
         }
-
-        // Announce all choices
+    
+        // Announce all choices with counts
         StringBuilder choiceAnnouncement = new StringBuilder("⚔️ Choices: ");
+        for (Choice choice : Choice.values()) {
+            if (choiceGroups.containsKey(choice)) {
+                int count = choiceGroups.get(choice).size();
+                choiceAnnouncement.append(String.format("%s(%d) ", choice, count));
+            }
+        }
+        sendGameEvent(choiceAnnouncement.toString());
+    
+        // Show individual player choices too
+        StringBuilder playerChoices = new StringBuilder("Players: ");
         for (Long playerId : playerIds) {
             String playerName = clientsInRoom.get(playerId).getDisplayName();
             Choice choice = playerChoice.get(playerId);
-            choiceAnnouncement.append(String.format("%s=%s ", playerName, choice));
+            playerChoices.append(String.format("%s=%s ", playerName, choice));
         }
-        sendGameEvent(choiceAnnouncement.toString());
-
+        sendGameEvent(playerChoices.toString());
+    
         // Determine winners
         List<Choice> presentChoices = new ArrayList<>(choiceGroups.keySet());
-
+    
         if (presentChoices.size() == 1) {
-            sendGameEvent("🤝 Everyone chose the same thing - it's a tie!");
+            // Everyone chose the same thing
+            Choice unanimousChoice = presentChoices.get(0);
+            sendGameEvent(String.format("Everyone chose %s - it's a tie!", unanimousChoice));
         } else if (presentChoices.size() == 3) {
-            sendGameEvent("🤝 All three choices present - it's a tie!");
+            // All three choices present - classic RPS tie
+            sendGameEvent("Everyone chooose Rock, Paper, AND Scissors - it's a tie!");
         } else {
             // Two choices present - determine winner
             Choice choice1 = presentChoices.get(0);
             Choice choice2 = presentChoices.get(1);
-
+    
             Choice winningChoice = isWinningChoice(choice1, choice2) ? choice1 : choice2;
+            Choice losingChoice = winningChoice == choice1 ? choice2 : choice1;
+            
             List<Long> winners = choiceGroups.get(winningChoice);
-
+            List<Long> losers = choiceGroups.get(losingChoice);
+    
             // Award points to winners
             for (Long winnerId : winners) {
                 ServerThread winner = clientsInRoom.get(winnerId);
                 winner.changePoints(1);
                 sendPlayerPoints(winner);
             }
-
+    
+            // Detailed result message
             String winnerNames = winners.stream()
                     .map(id -> clientsInRoom.get(id).getDisplayName())
                     .collect(Collectors.joining(", "));
-
-            sendGameEvent(String.format("🏆 Winners: %s with %s!", winnerNames, winningChoice));
+            
+            String loserNames = losers.stream()
+                    .map(id -> clientsInRoom.get(id).getDisplayName())
+                    .collect(Collectors.joining(", "));
+    
+            sendGameEvent(String.format(" %s beats %s!", winningChoice, losingChoice));
+            sendGameEvent(String.format("Winners (%d): %s", winners.size(), winnerNames));
+            sendGameEvent(String.format("Losers (%d): %s", losers.size(), loserNames));
         }
     }
-
-    private boolean isWinningChoice(Choice choice1, Choice choice2) {
-        return (choice1 == Choice.ROCK && choice2 == Choice.SCISSORS) ||
-                (choice1 == Choice.PAPER && choice2 == Choice.ROCK) ||
-                (choice1 == Choice.SCISSORS && choice2 == Choice.PAPER);
-    }
-
     private void clearChoicesAndEndRound() {
         playerChoice.clear();
         onRoundEnd();
     }
+
+private boolean isWinningChoice(Choice choice1, Choice choice2) {
+    return (choice1 == Choice.ROCK && choice2 == Choice.SCISSORS) ||
+           (choice1 == Choice.PAPER && choice2 == Choice.ROCK) ||
+           (choice1 == Choice.SCISSORS && choice2 == Choice.PAPER);
+}
 
      // ----------------------------------------------------------------------- /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ 
 }
