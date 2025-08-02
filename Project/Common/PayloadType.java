@@ -27,6 +27,8 @@ public enum PayloadType {
        ROCK,
        PAPER,
        SCISSOR,
+       LIZARD,
+       SPOCK,
        TIME, // syncs current time of various timers
        POINTS, // syncs points data
 }

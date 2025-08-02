@@ -30,13 +30,19 @@ public class GameRoom extends BaseGameRoom {
     private long currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
     private int round = 0;
 
-    // Rock Paper Scissors Implementation
+    // Rock Paper Scissors Lizard Spock Implementation
     private final Map<Long, Choice> playerChoice = new HashMap<>();
+    
+    // NEW: Cooldown system - track last choice per player
+    private final Map<Long, Choice> playerLastChoice = new HashMap<>();
+    private boolean cooldownEnabled = true; // Default: cooldowns enabled
 
     public enum Choice {
         ROCK,
         PAPER,
-        SCISSORS
+        SCISSORS,
+        LIZARD,
+        SPOCK
     }
 
     public GameRoom(String name) {
@@ -67,7 +73,8 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("Player Removed, remaining: " + clientsInRoom.size());
         long removedClient = sp.getClientId();
         turnOrder.removeIf(player -> player.getClientId() == sp.getClientId());
-        playerChoice.remove(removedClient); 
+        playerChoice.remove(removedClient);
+        playerLastChoice.remove(removedClient); // Clean up cooldown data
 
         if (clientsInRoom.isEmpty()) {
             resetReadyTimer();
@@ -127,6 +134,7 @@ public class GameRoom extends BaseGameRoom {
         setTurnOrder();
         round = 0;
         playerChoice.clear(); 
+        playerLastChoice.clear(); // Clear cooldown data on new game
         LoggerUtil.INSTANCE.info("onSessionStart() end");
         onRoundStart();
     }
@@ -140,10 +148,11 @@ public class GameRoom extends BaseGameRoom {
         playerChoice.clear(); // Clear choices from previous round
         round++;
 
-        sendGameEvent(String.format("Round %d - Make your choice: ROCK, PAPER, or SCISSORS!", round));
+        String cooldownStatus = cooldownEnabled ? " (No repeats allowed!)" : "";
+        sendGameEvent(String.format("Round %d - Make your choice: ROCK, PAPER, SCISSORS, LIZARD, or SPOCK!%s", round, cooldownStatus));
         startRoundTimer(); // Start timer for players to make choices
 
-        // For RPS, we don't need individual turns - all players choose simultaneously
+        // For RPSLS, we don't need individual turns - all players choose simultaneously
         LoggerUtil.INSTANCE.info("onRoundStart() end");
     }
 
@@ -186,7 +195,7 @@ public class GameRoom extends BaseGameRoom {
         resetRoundTimer(); // reset timer if round ended without the time expiring
 
         LoggerUtil.INSTANCE.info("onRoundEnd() end");
-        if (round >= 5) { // Best of 5 for RPS
+        if (round >= 5) { // Best of 5 for RPSLS
             onSessionEnd();
         } else {
             onRoundStart();
@@ -199,7 +208,8 @@ public class GameRoom extends BaseGameRoom {
         LoggerUtil.INSTANCE.info("onSessionEnd() start");
         turnOrder.clear();
         currentTurnClientId = Constants.DEFAULT_CLIENT_ID;
-        playerChoice.clear(); // Clear RPS choices
+        playerChoice.clear(); // Clear RPSLS choices
+        playerLastChoice.clear(); // Clear cooldown data
         resetReadyStatus();
         resetTurnStatus();
 
@@ -349,15 +359,22 @@ public class GameRoom extends BaseGameRoom {
             throw new NotPlayersTurnException("You are not the current player");
         }
     }
+
+    private void checkIsHost(ServerThread player) throws Exception {
+        // Simple host check - first player in room or you can implement more sophisticated logic
+        if (turnOrder.isEmpty() || !turnOrder.get(0).equals(player)) {
+            throw new Exception("Only the host can perform this action");
+        }
+    }
     // end check methods
 
     // receive data from ServerThread (GameRoom specific)
 
     /**
-     * Handles the RPS choice from the client.
+     * Handles the RPSLS choice from the client.
      * 
      * @param currentUser The player making the choice
-     * @param choice      The RPS choice (ROCK, PAPER, SCISSORS)
+     * @param choice      The RPSLS choice (ROCK, PAPER, SCISSORS, LIZARD, SPOCK)
      */
     protected void handleTurnAction(ServerThread currentUser, String choice) {
         try {
@@ -370,7 +387,7 @@ public class GameRoom extends BaseGameRoom {
                 return;
             }
 
-            // Process RPS choice
+            // Process RPSLS choice with cooldown check
             processRPSChoice(currentUser, choice);
 
         } catch (NotReadyException e) {
@@ -387,22 +404,51 @@ public class GameRoom extends BaseGameRoom {
         }
     }
 
-    // Rock Paper Scissors Methods
+    /**
+     * NEW: Host can toggle cooldown feature
+     */
+    protected void handleCooldownToggle(ServerThread host, boolean enableCooldown) {
+        try {
+            checkIsHost(host); // Verify this player is the host
+            cooldownEnabled = enableCooldown;
+            
+            String status = enableCooldown ? "enabled" : "disabled";
+            sendGameEvent(String.format("🔄 Choice cooldowns %s by %s", status, host.getDisplayName()));
+            
+        } catch (Exception e) {
+            host.sendMessage(Constants.DEFAULT_CLIENT_ID, "Only the host can toggle cooldowns");
+        }
+    }
+
+    // Rock Paper Scissors Lizard Spock Methods
 
     private void processRPSChoice(ServerThread player, String textChoice) {
         try {
             Choice choice;
             try {
-                if (textChoice.toUpperCase().equals("SCISSOR")) {
+                // Handle legacy and new choices
+                String upperChoice = textChoice.toUpperCase();
+                if (upperChoice.equals("SCISSOR")) {
                     choice = Choice.SCISSORS;
                 } else {
-                    choice = Choice.valueOf(textChoice.toUpperCase());
+                    choice = Choice.valueOf(upperChoice);
                 }
             } catch (IllegalArgumentException e) {
-                player.sendMessage(Constants.DEFAULT_CLIENT_ID, "Please choose ROCK, PAPER, or SCISSORS");
+                player.sendMessage(Constants.DEFAULT_CLIENT_ID, "Please choose ROCK, PAPER, SCISSORS, LIZARD, or SPOCK");
                 return;
             }
 
+            // NEW: Check cooldown - prevent same choice twice in a row
+            if (cooldownEnabled) {
+                Choice lastChoice = playerLastChoice.get(player.getClientId());
+                if (lastChoice != null && lastChoice == choice) {
+                    player.sendMessage(Constants.DEFAULT_CLIENT_ID, 
+                        String.format(" You already chose %s last round! Please choose another option.", choice));
+                    return; // Block the choice
+                }
+            }
+
+            // Choice is valid - proceed normally
             playerChoice.put(player.getClientId(), choice);
             player.sendMessage(Constants.DEFAULT_CLIENT_ID, "You chose: " + choice);
             player.setTookTurn(true);
@@ -430,7 +476,7 @@ public class GameRoom extends BaseGameRoom {
     private void processRPSRound() {
         try {
             if (playerChoice.size() < 2) {
-                sendGameEvent("Not enough players for Rock Paper Scissors");
+                sendGameEvent("Not enough players for Rock Paper Scissors Lizard Spock");
                 clearChoicesAndEndRound();
                 return;
             }
@@ -438,11 +484,11 @@ public class GameRoom extends BaseGameRoom {
             List<Long> playerIds = new ArrayList<>(playerChoice.keySet());
 
             if (playerIds.size() == 2) {
-                // Multi-player game
+    
                 processMultiPlayerRPS(playerIds);
             }
 
-        
+            clearChoicesAndEndRound();
 
         } catch (Exception e) {
             LoggerUtil.INSTANCE.severe("processRPSRound exception", e);
@@ -478,18 +524,17 @@ public class GameRoom extends BaseGameRoom {
             playerChoices.append(String.format("%s=%s ", playerName, choice));
         }
         sendGameEvent(playerChoices.toString());
-    
-        // Determine winners
+
+        // Determine winners for multiplayer
         List<Choice> presentChoices = new ArrayList<>(choiceGroups.keySet());
     
         if (presentChoices.size() == 1) {
-            // Everyone chose the same thing
             Choice unanimousChoice = presentChoices.get(0);
-            sendGameEvent(String.format("Everyone chose %s - it's a tie!", unanimousChoice));
-        } else if (presentChoices.size() == 3) {
-            // All three choices present - classic RPS tie
-            sendGameEvent("Everyone chooose Rock, Paper, AND Scissors - it's a tie!");
-        } else {
+            sendGameEvent(String.format(" Everyone chose %s - it's a tie!", unanimousChoice));
+        } else if (presentChoices.size() >= 3) {
+            // With 5 choices, having 3+ different choices usually results in ties
+            sendGameEvent(" Too many different choices - it's a tie!");
+        } else if (presentChoices.size() == 2) {
             // Two choices present - determine winner
             Choice choice1 = presentChoices.get(0);
             Choice choice2 = presentChoices.get(1);
@@ -506,8 +551,8 @@ public class GameRoom extends BaseGameRoom {
                 winner.changePoints(1);
                 sendPlayerPoints(winner);
             }
-    
-            // Detailed result message
+
+            String action = getWinningAction(winningChoice, losingChoice);
             String winnerNames = winners.stream()
                     .map(id -> clientsInRoom.get(id).getDisplayName())
                     .collect(Collectors.joining(", "));
@@ -515,22 +560,69 @@ public class GameRoom extends BaseGameRoom {
             String loserNames = losers.stream()
                     .map(id -> clientsInRoom.get(id).getDisplayName())
                     .collect(Collectors.joining(", "));
-    
-            sendGameEvent(String.format(" %s beats %s!", winningChoice, losingChoice));
+
+            sendGameEvent(String.format(" %s %s %s!", winningChoice, action, losingChoice));
             sendGameEvent(String.format("Winners (%d): %s", winners.size(), winnerNames));
             sendGameEvent(String.format("Losers (%d): %s", losers.size(), loserNames));
         }
     }
+
     private void clearChoicesAndEndRound() {
-        playerChoice.clear();
+        // NEW: Store current choices as "last choices" for next round cooldown
+        for (Map.Entry<Long, Choice> entry : playerChoice.entrySet()) {
+            playerLastChoice.put(entry.getKey(), entry.getValue());
+        }
+        
+        playerChoice.clear(); // Clear current round choices
         onRoundEnd();
     }
 
-private boolean isWinningChoice(Choice choice1, Choice choice2) {
-    return (choice1 == Choice.ROCK && choice2 == Choice.SCISSORS) ||
-           (choice1 == Choice.PAPER && choice2 == Choice.ROCK) ||
-           (choice1 == Choice.SCISSORS && choice2 == Choice.PAPER);
-}
+    private boolean isWinningChoice(Choice choice1, Choice choice2) {
+        return (choice1 == Choice.ROCK && choice2 == Choice.SCISSORS) ||
+                (choice1 == Choice.ROCK && choice2 == Choice.LIZARD) ||
+                (choice1 == Choice.PAPER && choice2 == Choice.ROCK) ||
+                (choice1 == Choice.PAPER && choice2 == Choice.SPOCK) ||
+                (choice1 == Choice.SCISSORS && choice2 == Choice.PAPER) ||
+                (choice1 == Choice.SCISSORS && choice2 == Choice.LIZARD) ||
+                (choice1 == Choice.LIZARD && choice2 == Choice.PAPER) ||
+                (choice1 == Choice.LIZARD && choice2 == Choice.SPOCK) ||
+                (choice1 == Choice.SPOCK && choice2 == Choice.SCISSORS) ||
+                (choice1 == Choice.SPOCK && choice2 == Choice.ROCK);
+    }
 
-     // ----------------------------------------------------------------------- /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ /\ 
+    private String getWinningAction(Choice winner, Choice loser) {
+        switch (winner) {
+            case ROCK:
+                if (loser == Choice.SCISSORS) return "crushes";
+                if (loser == Choice.LIZARD) return "crushes";
+                break;
+            case PAPER:
+                if (loser == Choice.ROCK) return "covers";
+                if (loser == Choice.SPOCK) return "disproves";
+                break;
+            case SCISSORS:
+                if (loser == Choice.PAPER) return "cuts";
+                if (loser == Choice.LIZARD) return "decapitates";
+                break;
+            case LIZARD:
+                if (loser == Choice.PAPER) return "eats";
+                if (loser == Choice.SPOCK) return "poisons";
+                break;
+            case SPOCK:
+                if (loser == Choice.SCISSORS) return "smashes";
+                if (loser == Choice.ROCK) return "vaporizes";
+                break;
+        }
+        return "beats"; // fallback
+    }
+
+    // NEW: Get player's blocked choice for UI feedback
+    public Choice getPlayerBlockedChoice(long clientId) {
+        return playerLastChoice.get(clientId);
+    }
+
+    // NEW: Check if cooldowns are enabled
+    public boolean isCooldownEnabled() {
+        return cooldownEnabled;
+    }
 }

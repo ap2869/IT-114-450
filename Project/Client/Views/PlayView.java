@@ -15,7 +15,7 @@ public class PlayView extends JPanel {
         this.setName(name);
 
         // Create Rock, Paper, Scissors buttons using a cleaner approach
-        String[] choices = {"Rock", "Paper", "Scissors"};
+        String[] choices = {"Rock", "Paper", "Scissors", "Lizard", "Spock"};
         
         for (String choice : choices) {
             JButton button = new JButton(choice);
