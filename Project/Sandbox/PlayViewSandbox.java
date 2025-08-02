@@ -1,4 +1,4 @@
-package Project.Sandbox;
+/*package Project.Sandbox;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -32,7 +32,7 @@ import javax.swing.border.LineBorder ;
  
 
 public class PlayViewSandbox {
-    // CardUI - Power-up cards
+   
     public static class CardUI extends JButton {
         public CardUI(Card card, Consumer<Card> onSelect) {
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
@@ -127,10 +127,10 @@ public class PlayViewSandbox {
 
         private String getEmoji(Move move) {
             switch (move) {
-                case ROCK: return "🗿";
-                case PAPER: return "📄";
-                case SCISSORS: return "✂️";
-                default: return "❓";
+                case ROCK: return "";
+                case PAPER: return "";
+                case SCISSORS: return "";
+                default: return "";
             }
         }
     }
@@ -461,7 +461,7 @@ public class PlayViewSandbox {
             frame.setVisible(true);
         });
     }
-}
+} */
 
 
 
