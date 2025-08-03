@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 
 import Project.Common.Constants;
@@ -38,9 +37,6 @@ public class GameRoom extends BaseGameRoom {
     private final Map<Long, Choice> playerLastChoice = new HashMap<>();
     private boolean cooldownEnabled = true; // Default: cooldowns enabled
 
-    // NEW: Spectator tracking
-    private final ConcurrentHashMap<Long, ServerThread> spectators = new ConcurrentHashMap<>();
-
     public enum Choice {
         ROCK,
         PAPER,
@@ -56,56 +52,40 @@ public class GameRoom extends BaseGameRoom {
     /** {@inheritDoc} */
     @Override
     protected void onClientAdded(ServerThread sp) {
-        if (sp.isSpectator()) {
-            // Add to spectators map
-            spectators.put(sp.getClientId(), sp);
-            
-            // Sync game state to spectator (read-only)
-            syncCurrentPhase(sp);
-            if (currentPhase != Phase.READY) {
-                syncTurnStatus(sp);
-                syncPlayerPoints(sp);
-            }
-            
-            // Notify everyone that a spectator joined
-            sendGameEvent(String.format("%s joined as a spectator", sp.getDisplayName()));
-        } else {
-            // Regular player logic (existing code)
-            syncCurrentPhase(sp);
-            syncReadyStatus(sp);
-            if (currentPhase != Phase.READY) {
-                syncTurnStatus(sp);
-                syncPlayerPoints(sp);
-            }
+        // sync GameRoom state to new client
+
+        syncCurrentPhase(sp);
+        // sync only what's necessary for the specific phase
+        // if you blindly sync everything, you'll get visual artifacts/discrepancies
+        syncReadyStatus(sp);
+        if (currentPhase != Phase.READY) {
+            syncTurnStatus(sp); // turn/ready use the same visual process so ensure turn status is only called
+                                // outside of ready phase
+            syncPlayerPoints(sp);
         }
+
     }
 
     /** {@inheritDoc} */
     @Override
     protected void onClientRemoved(ServerThread sp) {
-        LoggerUtil.INSTANCE.info("Player/Spectator Removed, remaining: " + clientsInRoom.size());
+        // Stops the timers so room can clean up
+        LoggerUtil.INSTANCE.info("Player Removed, remaining: " + clientsInRoom.size());
         long removedClient = sp.getClientId();
-        
-        if (sp.isSpectator()) {
-            // Remove from spectators
-            spectators.remove(removedClient);
-            sendGameEvent(String.format("👁️ Spectator %s left the game", sp.getDisplayName()));
-        } else {
-            // Existing player removal logic
-            turnOrder.removeIf(player -> player.getClientId() == sp.getClientId());
-            playerChoice.remove(removedClient);
-            playerLastChoice.remove(removedClient);
+        turnOrder.removeIf(player -> player.getClientId() == sp.getClientId());
+        playerChoice.remove(removedClient);
+        playerLastChoice.remove(removedClient); // Clean up cooldown data
 
-            if (clientsInRoom.isEmpty()) {
-                resetReadyTimer();
-                resetTurnTimer();
-                resetRoundTimer();
-                onSessionEnd();
-            } else if (removedClient == currentTurnClientId) {
-                onTurnStart();
-            } else if (playerChoice.size() > 0 && allPlayersChose()) {
-                processRPSRound();
-            }
+        if (clientsInRoom.isEmpty()) {
+            resetReadyTimer();
+            resetTurnTimer();
+            resetRoundTimer();
+            onSessionEnd();
+        } else if (removedClient == currentTurnClientId) {
+            onTurnStart();
+        } else if (playerChoice.size() > 0 && allPlayersChose()) {
+            // If remaining players have all chosen, process the round
+            processRPSRound();
         }
     }
 
@@ -155,13 +135,6 @@ public class GameRoom extends BaseGameRoom {
         round = 0;
         playerChoice.clear(); 
         playerLastChoice.clear(); // Clear cooldown data on new game
-        
-        // Notify spectators that game is starting
-        spectators.values().forEach(spectator -> {
-            spectator.sendMessage(Constants.DEFAULT_CLIENT_ID, 
-                "Game is starting! You're spectating this match.");
-        });
-        
         LoggerUtil.INSTANCE.info("onSessionStart() end");
         onRoundStart();
     }
@@ -318,10 +291,7 @@ public class GameRoom extends BaseGameRoom {
 
     private void setTurnOrder() {
         turnOrder.clear();
-        turnOrder = clientsInRoom.values().stream()
-                .filter(ServerThread::isReady)
-                .filter(sp -> !sp.isSpectator()) // Exclude spectators
-                .collect(Collectors.toList());
+        turnOrder = clientsInRoom.values().stream().filter(ServerThread::isReady).collect(Collectors.toList());
         Collections.shuffle(turnOrder);
     }
 
@@ -329,7 +299,6 @@ public class GameRoom extends BaseGameRoom {
         StringBuilder scoreMessage = new StringBuilder("** FINAL SCORES ** \n");
 
         List<ServerThread> sortedPlayers = clientsInRoom.values().stream()
-                .filter(sp -> !sp.isSpectator()) // Only include players in final scores
                 .sorted((p1, p2) -> Integer.compare(p2.getPoints(), p1.getPoints()))
                 .collect(Collectors.toList());
 
@@ -372,10 +341,10 @@ public class GameRoom extends BaseGameRoom {
 
     private void checkAllTookTurn() {
         int numReady = clientsInRoom.values().stream()
-                .filter(sp -> sp.isReady() && !sp.isSpectator()) // Exclude spectators
+                .filter(sp -> sp.isReady())
                 .toList().size();
         int numTookTurn = clientsInRoom.values().stream()
-                .filter(sp -> sp.isReady() && sp.didTakeTurn() && !sp.isSpectator()) // Exclude spectators
+                .filter(sp -> sp.isReady() && sp.didTakeTurn())
                 .toList().size();
         if (numReady == numTookTurn) {
             sendGameEvent(
@@ -409,13 +378,6 @@ public class GameRoom extends BaseGameRoom {
      */
     protected void handleTurnAction(ServerThread currentUser, String choice) {
         try {
-          
-            if (currentUser.isSpectator()) {
-                currentUser.sendMessage(Constants.DEFAULT_CLIENT_ID, 
-                    "Spectators cannot make game choices. You can only observe the game.");
-                return;
-            }
-            
             checkPlayerInRoom(currentUser);
             checkCurrentPhase(currentUser, Phase.IN_PROGRESS);
             checkIsReady(currentUser);
@@ -457,6 +419,7 @@ public class GameRoom extends BaseGameRoom {
             host.sendMessage(Constants.DEFAULT_CLIENT_ID, "Only the host can toggle cooldowns");
         }
     }
+
 
     /**
      * NEW: Handle spectator join requests
@@ -507,10 +470,8 @@ public class GameRoom extends BaseGameRoom {
             if (allPlayersChose()) {
                 processRPSRound();
             } else {
-                int playersReady = (int) clientsInRoom.values().stream()
-                        .filter(ServerThread::isReady)
-                        .filter(sp -> !sp.isSpectator()) // Exclude spectators
-                        .count();
+            
+                int playersReady = (int) clientsInRoom.values().stream().filter(ServerThread::isReady).count();
                 int playersChosen = playerChoice.size();
                 sendGameEvent(String.format("PENDING: Waiting for choices... (%d/%d players have chosen)",
                         playersChosen, playersReady));
@@ -521,10 +482,7 @@ public class GameRoom extends BaseGameRoom {
     }
 
     private boolean allPlayersChose() {
-        long playersReady = clientsInRoom.values().stream()
-                .filter(ServerThread::isReady)
-                .filter(sp -> !sp.isSpectator()) 
-                .count();
+        long playersReady = clientsInRoom.values().stream().filter(ServerThread::isReady).count();
         return playerChoice.size() == playersReady;
     }
 
@@ -679,10 +637,5 @@ public class GameRoom extends BaseGameRoom {
     // NEW: Check if cooldowns are enabled
     public boolean isCooldownEnabled() {
         return cooldownEnabled;
-    }
-
-    // NEW: Get spectator count for UI
-    public int getSpectatorCount() {
-        return spectators.size();
     }
 }
