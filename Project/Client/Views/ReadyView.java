@@ -17,5 +17,16 @@ public class ReadyView extends JPanel {
             }
         });
         this.add(readyButton);
+
+   
+        JButton spectatorButton = new JButton("Spectator");
+        spectatorButton.addActionListener(_ -> {
+            try {
+                Client.INSTANCE.sendMessage("/spectate");
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        });
+        this.add(spectatorButton);
     }
 }

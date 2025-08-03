@@ -129,6 +129,11 @@ public class Room implements AutoCloseable {
         if (!isRunning) { // block action if Room isn't running
             return;
         }
+        if (sender != null && sender.isSpectator()) {
+            sender.sendMessage(Constants.DEFAULT_CLIENT_ID, 
+                "Spectators cannot send messages. You can only observe the game.");
+            return;
+        }
 
         // Note: any desired changes to the message must be done before this line
         final String senderString = sender == null ? String.format("Room[%s]", getName())
@@ -187,7 +192,8 @@ public class Room implements AutoCloseable {
                 }
                 return failedToSend;
             });
-            relay(null, disconnectingServerThread.getDisplayName() + " disconnected");
+            String spectatorText = disconnectingServerThread.isSpectator() ? " (spectator)" : "";
+            relay(null, disconnectingServerThread.getDisplayName() + spectatorText + " disconnected");
             disconnectingServerThread.disconnect();
         }
         autoCleanup();
@@ -260,6 +266,42 @@ public class Room implements AutoCloseable {
             sender.sendMessage(Constants.DEFAULT_CLIENT_ID, String.format("Room %s doesn't exist", roomName));
         }
     }
+    public void handleSpectateCommand(ServerThread sender) {
+        if (sender.isSpectator()) {
+            sender.sendMessage(Constants.DEFAULT_CLIENT_ID, "You are already spectating this room.");
+            return;
+        }
+        
+        // Convert current player to spectator
+        sender.setSpectator(true);
+        sender.setReady(false); // Spectators can't be ready
+        
+        sender.sendMessage(Constants.DEFAULT_CLIENT_ID, 
+            "🎮 You are now spectating this room. You can watch but cannot participate in gameplay.");
+        
+        // Notify room that player became spectator
+        relay(null, String.format("%s is now spectating the game", sender.getDisplayName()));
+    }
+
+    /**
+     * NEW: Handle join as player command (convert spectator to player)
+     */
+    public void handleJoinAsPlayer(ServerThread sender) {
+        if (!sender.isSpectator()) {
+            sender.sendMessage(Constants.DEFAULT_CLIENT_ID, "You are already a player in this room.");
+            return;
+        }
+        
+        // Convert spectator to player
+        sender.setSpectator(false);
+        
+        sender.sendMessage(Constants.DEFAULT_CLIENT_ID, 
+            " You are now a player in this room. You can participate in gameplay.");
+        
+        // Notify room that spectator became player
+        relay(null, String.format("%s joined the game as a player", sender.getDisplayName()));
+    }
+
 
     protected synchronized void handleDisconnect(BaseServerThread sender) {
         handleDisconnect((ServerThread) sender);
@@ -285,4 +327,9 @@ public class Room implements AutoCloseable {
         relay(sender, text);
     }
     // end handle methods
+
+    public void handleJoinAsSpectator(ServerThread serverThread, String roomName) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'handleJoinAsSpectator'");
+    }
 }
