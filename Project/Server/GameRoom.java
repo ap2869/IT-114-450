@@ -463,11 +463,11 @@ public class GameRoom extends BaseGameRoom {
      */
     protected void handleSpectatorJoin(ServerThread client) {
         client.setSpectator(true);
-        client.setReady(false); // Spectators are never "ready" for gameplay
+        client.setReady(false); 
         
-        // Send spectator-specific welcome message
+
         client.sendMessage(Constants.DEFAULT_CLIENT_ID, 
-            "🎮 You are now spectating this game. You can watch but cannot participate in gameplay.");
+            " You are now spectating this game. You can watch but cannot participate in game.");
     }
 
     // Rock Paper Scissors Lizard Spock Methods
