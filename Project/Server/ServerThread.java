@@ -341,4 +341,9 @@ public class ServerThread extends BaseServerThread {
         } catch (IOException e) {
             LoggerUtil.INSTANCE.error("Error has occured when sending payload: " + e.getMessage());
         }
+    }
+
+    public void setSpectator(boolean b) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'setSpectator'");
     }}
