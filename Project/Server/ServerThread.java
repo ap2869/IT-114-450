@@ -25,9 +25,6 @@ import Project.Common.TextFX;
  */
 public class ServerThread extends BaseServerThread {
     private Consumer<ServerThread> onInitializationComplete; // callback to inform when this object is ready
-    
-    // NEW: Spectator support
-    private boolean isSpectator = false;
 
     /**
      * A wrapper method so we don't need to keep typing out the long/complex sysout
@@ -58,27 +55,7 @@ public class ServerThread extends BaseServerThread {
         // this.clientId = this.threadId(); // An id associated with the thread
         // instance, used as a temporary identifier
         this.onInitializationComplete = onInitializationComplete;
-    }
 
-    // NEW: Spectator methods
-    /**
-     * Check if this client is a spectator
-     * @return true if client is spectating, false if participating
-     */
-    public boolean isSpectator() {
-        return isSpectator;
-    }
-    
-    /**
-     * Set spectator status for this client
-     * @param spectator true to make this client a spectator, false to make them a player
-     */
-    public void setSpectator(boolean spectator) {
-        this.isSpectator = spectator;
-        // If becoming a spectator, ensure they're not ready for gameplay
-        if (spectator) {
-            setReady(false);
-        }
     }
 
     // Start Send*() Methods
@@ -273,18 +250,7 @@ public class ServerThread extends BaseServerThread {
                 currentRoom.handleDisconnect(this);
                 break;
             case MESSAGE:
-                // Handle spectator commands in messages
-                String message = incoming.getMessage().trim();
-                if (message.startsWith("/spectate") || message.startsWith("/watch")) {
-                    handleSpectatorCommand(message);
-                } else if (message.equals("/play") || message.equals("/join")) {
-                    handleJoinAsPlayerCommand();
-                } else if (message.equals("/help")) {
-                    handleHelpCommand();
-                } else {
-                    // Regular message handling (Room will block spectators from sending)
-                    currentRoom.handleMessage(this, message);
-                }
+                currentRoom.handleMessage(this, incoming.getMessage());
                 break;
             case REVERSE:
                 currentRoom.handleReverseText(this, incoming.getMessage());
@@ -302,17 +268,13 @@ public class ServerThread extends BaseServerThread {
                 currentRoom.handleListRooms(this, incoming.getMessage());
                 break;
             case ROCK:
+                break;
             case PAPER:
+                break;
             case SCISSOR:
-                // These are handled by TURN case now
                 break;   
             case READY:
-                // Block spectators from being ready
-                if (isSpectator) {
-                    sendMessage(Constants.DEFAULT_CLIENT_ID, 
-                        "Spectators cannot mark themselves as ready. Use '/play' to join the game.");
-                    break;
-                }
+                // no data needed as the intent will be used as the trigger
                 try {
                     // cast to GameRoom as the subclass will handle all Game logic
                     ((GameRoom) currentRoom).handleReady(this);
@@ -321,7 +283,7 @@ public class ServerThread extends BaseServerThread {
                 }
                 break;
             case TURN:
-                // Handle game actions (ROCK, PAPER, SCISSORS, LIZARD, SPOCK)
+                // no data needed as the intent will be used as the trigger
                 try {
                     // cast to GameRoom as the subclass will handle all Game logic
                     ((GameRoom) currentRoom).handleTurnAction(this, incoming.getMessage());
@@ -333,48 +295,6 @@ public class ServerThread extends BaseServerThread {
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unknown payload type received", Color.RED));
                 break;
         }
-    }
-
-    // NEW: Command handling methods for spectator functionality
-    private void handleSpectatorCommand(String message) {
-        String[] parts = message.split(" ", 2);
-        if (parts.length == 2) {
-            // Join specific room as spectator: /spectate <roomname>
-            String roomName = parts[1].trim();
-            if (currentRoom instanceof Room) {
-                ((Room) currentRoom).handleJoinAsSpectator(this, roomName);
-            }
-        } else {
-            // Become spectator in current room: /spectate
-            if (currentRoom instanceof Room) {
-                ((Room) currentRoom).handleSpectateCommand(this);
-            }
-        }
-    }
-
-    private void handleJoinAsPlayerCommand() {
-        // Convert spectator to player
-        if (currentRoom instanceof Room) {
-            ((Room) currentRoom).handleJoinAsPlayer(this);
-        }
-    }
-
-    private void handleHelpCommand() {
-        String helpText = """
-            🎮 Game Commands:
-            /join <roomname> - Join a room as a player
-            /spectate [roomname] - Join as spectator or become spectator in current room
-            /watch [roomname] - Same as spectate
-            /play - Convert from spectator to player
-            /ready - Mark yourself as ready (players only)
-            /list - List available rooms
-            /create <roomname> - Create a new room
-            /reverse <text> - Reverse text (players only)
-            
-             Game Actions (in GameRoom):
-            ROCK, PAPER, SCISSORS, LIZARD, SPOCK - Make your choice!
-            """;
-        sendMessage(Constants.DEFAULT_CLIENT_ID, helpText);
     }
 
     // limited user data exposer
