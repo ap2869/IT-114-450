@@ -1,7 +1,7 @@
 #!/bin/bash
 # Convert input to lowercase
-input=$(echo "${2:-client}" | tr '[:upper:]' '[:lower:]')
-port=${3:-3000}  # Default port to 3000 if not 
+input=$(echo "${2:-ui}" | tr '[:upper:]' '[:lower:]')
+port=${3:-3001}  # Default port to 3000 if not 
 # Default debug mode to false
 debug=false
 debugArg=""

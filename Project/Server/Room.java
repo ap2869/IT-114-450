@@ -73,7 +73,7 @@ public class Room implements AutoCloseable {
         clientsInRoom.values().forEach(serverThread -> {
             if (serverThread.getClientId() != incomingClient.getClientId()) {
                 boolean failedToSync = !incomingClient.sendClientInfo(serverThread.getClientId(),
-                        serverThread.getClientName(), RoomAction.JOIN, true);
+                        serverThread.getClientName(), getName(), RoomAction.JOIN, true);
                 if (failedToSync) {
                     LoggerUtil.INSTANCE.warning(
                             String.format("Removing disconnected %s from list", serverThread.getDisplayName()));
@@ -85,17 +85,24 @@ public class Room implements AutoCloseable {
 
     private void joinStatusRelay(ServerThread client, boolean didJoin) {
         clientsInRoom.values().removeIf(serverThread -> {
-            String formattedMessage = String.format("Room[%s] %s %s the room",
-                    getName(),
+            String formattedMessage = String.format("%s %s the room",
+
                     client.getClientId() == serverThread.getClientId() ? "You"
                             : client.getDisplayName(),
                     didJoin ? "joined" : "left");
-            final long senderId = client == null ? Constants.DEFAULT_CLIENT_ID : client.getClientId();
+            // final long senderId = client == null ? Constants.DEFAULT_CLIENT_ID :
+            // client.getClientId();
             // Share info of the client joining or leaving the room
-            boolean failedToSync = !serverThread.sendClientInfo(client.getClientId(),
-                    client.getClientName(), didJoin ? RoomAction.JOIN : RoomAction.LEAVE);
+            boolean failedToSync = !serverThread.sendClientInfo(
+                    client.getClientId(),
+                    client.getClientName(),
+                    getName(),
+                    didJoin ? RoomAction.JOIN : RoomAction.LEAVE);
             // Send the server generated message to the current client
-            boolean failedToSend = !serverThread.sendMessage(senderId, formattedMessage);
+            // fixed the sender as it was incorrectly showing to be from a user
+            // Example 2: Server-side generated join/leave message (this was from Milestone
+            // 2)
+            boolean failedToSend = !serverThread.sendMessage(Constants.DEFAULT_CLIENT_ID, formattedMessage);
             if (failedToSend || failedToSync) {
                 LoggerUtil.INSTANCE.warning(
                         String.format("Removing disconnected %s from list", serverThread.getDisplayName()));
@@ -122,6 +129,11 @@ public class Room implements AutoCloseable {
         if (!isRunning) { // block action if Room isn't running
             return;
         }
+        if (sender != null && sender.isSpectator()) {
+            sender.sendMessage(Constants.DEFAULT_CLIENT_ID, 
+                "Spectators cannot send messages. You can only observe the game.");
+            return;
+        }
 
         // Note: any desired changes to the message must be done before this line
         final String senderString = sender == null ? String.format("Room[%s]", getName())
@@ -129,8 +141,9 @@ public class Room implements AutoCloseable {
         final long senderId = sender == null ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
         // Note: formattedMessage must be final (or effectively final) since outside
         // scope can't be changed inside a callback function (see removeIf() below)
-        final String formattedMessage = String.format("%s: %s", senderString, message);
-
+        // final String formattedMessage = String.format("%s: %s", senderString,
+        // message);
+        final String formattedMessage = String.format("%s", message);
         // loop over clients and send out the message; remove client if message failed
         // to be sent
         // Note: this uses a lambda expression for each item in the values() collection,
@@ -167,8 +180,11 @@ public class Room implements AutoCloseable {
                 if (serverThread.getClientId() == disconnectingServerThread.getClientId()) {
                     return true;
                 }
-                boolean failedToSend = !serverThread.sendClientInfo(disconnectingServerThread.getClientId(),
-                        disconnectingServerThread.getClientName(), RoomAction.LEAVE);
+                boolean failedToSend = !serverThread.sendClientInfo(
+                        disconnectingServerThread.getClientId(),
+                        disconnectingServerThread.getClientName(),
+                        getName(),
+                        RoomAction.LEAVE);
                 if (failedToSend) {
                     LoggerUtil.INSTANCE.warning(
                             String.format("Removing disconnected %s from list", serverThread.getDisplayName()));
@@ -176,7 +192,8 @@ public class Room implements AutoCloseable {
                 }
                 return failedToSend;
             });
-            relay(null, disconnectingServerThread.getDisplayName() + " disconnected");
+            String spectatorText = disconnectingServerThread.isSpectator() ? " (spectator)" : "";
+            relay(null, disconnectingServerThread.getDisplayName() + spectatorText + " disconnected");
             disconnectingServerThread.disconnect();
         }
         autoCleanup();
@@ -249,6 +266,42 @@ public class Room implements AutoCloseable {
             sender.sendMessage(Constants.DEFAULT_CLIENT_ID, String.format("Room %s doesn't exist", roomName));
         }
     }
+    public void handleSpectateCommand(ServerThread sender) {
+        if (sender.isSpectator()) {
+            sender.sendMessage(Constants.DEFAULT_CLIENT_ID, "You are already spectating this room.");
+            return;
+        }
+        
+        // Convert current player to spectator
+        sender.setSpectator(true);
+        sender.setReady(false); // Spectators can't be ready
+        
+        sender.sendMessage(Constants.DEFAULT_CLIENT_ID, 
+            "🎮 You are now spectating this room. You can watch but cannot participate in gameplay.");
+        
+        // Notify room that player became spectator
+        relay(null, String.format("%s is now spectating the game", sender.getDisplayName()));
+    }
+
+    /**
+     * NEW: Handle join as player command (convert spectator to player)
+     */
+    public void handleJoinAsPlayer(ServerThread sender) {
+        if (!sender.isSpectator()) {
+            sender.sendMessage(Constants.DEFAULT_CLIENT_ID, "You are already a player in this room.");
+            return;
+        }
+        
+        // Convert spectator to player
+        sender.setSpectator(false);
+        
+        sender.sendMessage(Constants.DEFAULT_CLIENT_ID, 
+            " You are now a player in this room. You can participate in gameplay.");
+        
+        // Notify room that spectator became player
+        relay(null, String.format("%s joined the game as a player", sender.getDisplayName()));
+    }
+
 
     protected synchronized void handleDisconnect(BaseServerThread sender) {
         handleDisconnect((ServerThread) sender);
@@ -274,4 +327,9 @@ public class Room implements AutoCloseable {
         relay(sender, text);
     }
     // end handle methods
-   }
+
+    public void handleJoinAsSpectator(ServerThread serverThread, String roomName) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'handleJoinAsSpectator'");
+    }
+}
