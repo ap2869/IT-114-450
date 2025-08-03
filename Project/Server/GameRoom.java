@@ -420,6 +420,19 @@ public class GameRoom extends BaseGameRoom {
         }
     }
 
+
+    /**
+     * NEW: Handle spectator join requests
+     */
+    protected void handleSpectatorJoin(ServerThread client) {
+        client.setSpectator(true);
+        client.setReady(false); 
+        
+
+        client.sendMessage(Constants.DEFAULT_CLIENT_ID, 
+            " You are now spectating this game. You can watch but cannot participate in game.");
+    }
+
     // Rock Paper Scissors Lizard Spock Methods
 
     private void processRPSChoice(ServerThread player, String textChoice) {
