@@ -451,7 +451,7 @@ public class GameRoom extends BaseGameRoom {
                 return;
             }
 
-            // NEW: Check cooldown - prevent same choice twice in a row
+            // prevent same choice twice in a row
             if (cooldownEnabled) {
                 Choice lastChoice = playerLastChoice.get(player.getClientId());
                 if (lastChoice != null && lastChoice == choice) {
@@ -519,7 +519,7 @@ public class GameRoom extends BaseGameRoom {
             choiceGroups.computeIfAbsent(choice, k -> new ArrayList<>()).add(playerId);
         }
     
-        // Announce all choices with counts
+        // Announce all choices 
         StringBuilder choiceAnnouncement = new StringBuilder("⚔️ Choices: ");
         for (Choice choice : Choice.values()) {
             if (choiceGroups.containsKey(choice)) {

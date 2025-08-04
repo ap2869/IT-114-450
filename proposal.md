@@ -12,6 +12,6 @@
 - Milestone 2
   https://github.com/ap2869/IT-114-450/blob/main/HW%20pdf%20files/Milestone%202%20114%20project.pdf
 - Milestone 3
-  - (add link to milestone3.pdf from milestone3 branch)
+  https://github.com/ap2869/IT-114-450/blob/main/HW%20pdf%20files/Milestone%203%20114%20PDF%20HW.pdf
 - Demo Link
-  - (add youtube link to unlisted or public demo) Note you'll need to verify your youtube account to upload videos > 15mins
+   https://youtu.be/9JP_yybTgMs
