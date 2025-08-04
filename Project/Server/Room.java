@@ -165,7 +165,7 @@ public class Room implements AutoCloseable {
      * @param client
      */
     protected synchronized void disconnect(ServerThread client) {
-        if (!isRunning) { // block action if Room isn't running
+        if (!isRunning) { 
             return;
         }
         ServerThread disconnectingServerThread = clientsInRoom.remove(client.getClientId());
@@ -225,7 +225,7 @@ public class Room implements AutoCloseable {
                     Server.INSTANCE.joinRoom(Room.LOBBY, client);
                 } catch (RoomNotFoundException e) {
                     e.printStackTrace();
-                    // TODO, fill in, this shouldn't happen though
+                    
                 }
                 return true;
             });
